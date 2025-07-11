@@ -1,0 +1,327 @@
+.template-builder-container {
+  display: flex;
+  flex-wrap: nowrap;
+  height: 100vh;
+  padding: 20px;
+  box-sizing: border-box;
+  gap: 20px;
+  background: #f9f9f9;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.question-bank {
+  width: 280px;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  background: white;
+  border-radius: 8px;
+  padding: 15px;
+  box-shadow: 0 0 8px rgb(0 0 0 / 0.1);
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.question-bank h3 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: #333;
+}
+
+.unique-question-list {
+  margin-bottom: 25px;
+}
+
+.unique-question {
+  background-color: #cce5ff;
+  color: #004085;
+  padding: 10px 15px;
+  margin-bottom: 10px;
+  border-radius: 6px;
+  cursor: grab;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.1);
+  transition: background-color 0.3s ease;
+  user-select: none;
+}
+
+.unique-question.disabled {
+  background-color: #d3d3d3;
+  color: #666;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.other-question-list {
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+.other-question {
+  background-color: #eee;
+  color: #333;
+  padding: 10px 15px;
+  margin-bottom: 10px;
+  border-radius: 6px;
+  cursor: grab;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.1);
+  user-select: none;
+}
+
+.builder-area {
+  flex: 1;
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  min-height: 500px;
+  overflow: hidden;
+  box-shadow: 0 0 12px rgb(0 0 0 / 0.1);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.page-tabs {
+  display: flex;
+  align-items: center;
+  margin-bottom: 15px;
+  gap: 10px;
+  flex-wrap: nowrap;
+  user-select: none;
+  overflow-x: auto;
+}
+
+.page-tab {
+  background-color: #e7e7e7;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  color: #333;
+  transition: background-color 0.3s ease;
+  margin-right: 6px;
+  display: flex;
+  align-items: center;
+}
+
+.page-tab-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  user-select: none;
+}
+
+.page-tab-wrapper.active .page-tab {
+  background-color: #007bff;
+  color: white;
+  box-shadow: 0 0 6px rgba(0, 123, 255, 0.5);
+}
+
+.page-tab:hover:not(.active) {
+  background-color: #d0d0d0;
+}
+
+/* Delete button for pages (trash icon) */
+.btn-delete-page {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  color: #555;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s ease;
+  flex-shrink: 0;
+  border-radius: 3px;
+}
+
+.btn-delete-page:hover {
+  color: #c82333;
+  background-color: #f8d7da;
+}
+
+/* Adjust trash icon size */
+.btn-delete-page svg {
+  width: 14px;
+  height: 14px;
+}
+
+.btn-add-page {
+  background-color: #28a745;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: white;
+  font-weight: 600;
+  transition: background-color 0.3s ease;
+  user-select: none;
+}
+
+.btn-add-page:hover {
+  background-color: #218838;
+}
+
+.builder-topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #ddd;
+  margin-bottom: 15px;
+  flex-wrap: wrap;
+}
+
+.pages-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+}
+
+.save-template-btn {
+  background-color: #007bff;
+  border: none;
+  padding: 8px 18px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: white;
+  font-weight: 700;
+  transition: background-color 0.3s ease;
+  user-select: none;
+}
+
+.save-template-btn:hover {
+  background-color: #0056b3;
+}
+
+.form-builder-drop-area {
+  flex: 1;
+  overflow-y: auto;
+  min-width: 0;
+}
+
+.empty-builder-text {
+  color: #999;
+  font-style: italic;
+  margin-top: 40px;
+  text-align: center;
+  user-select: none;
+}
+
+.builder-question {
+  margin-bottom: 15px;
+  padding: 15px;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.12);
+  cursor: grab;
+  user-select: none;
+  transition: box-shadow 0.2s ease;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.builder-question:hover {
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.15);
+}
+
+.question-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.btn-delete-question {
+  background: transparent;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  color: #d9534f;
+  line-height: 1;
+  padding: 0 5px;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s ease;
+}
+
+.btn-delete-question:hover {
+  color: #a94442;
+}
+
+.delete-button-container {
+  margin-left: 10px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.page-tab {
+  background-color: #e7e7e7;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  color: #333;
+  transition: background-color 0.3s ease;
+  margin-right: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 100px;
+  user-select: none;
+  position: relative;
+}
+
+.page-tab:hover:not(.active) {
+  background-color: #d0d0d0;
+}
+
+.page-tab.active {
+  background-color: #007bff;
+  color: white;
+  box-shadow: 0 0 6px rgba(0, 123, 255, 0.5);
+}
+
+.page-tab-label {
+  pointer-events: none; /* So clicks go to button */
+  flex-grow: 1;
+  text-align: left;
+  user-select: none;
+}
+
+.btn-delete-page-inside {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #555;
+  padding-left: 8px;
+  padding-right: 4px;
+  cursor: pointer;
+  user-select: none;
+  flex-shrink: 0;
+  border-radius: 3px;
+  transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+.btn-delete-page-inside:hover {
+  color: #c82333;
+  background-color: #f8d7da;
+}
+
+.btn-delete-page-inside svg {
+  width: 14px;
+  height: 14px;
+}
