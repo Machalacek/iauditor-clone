@@ -1,48 +1,27 @@
 {
-  "name": "frontend",
-  "version": "0.1.0",
+  "name": "iauditor-frontend",
+  "version": "1.0.0",
   "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
   "dependencies": {
     "@hello-pangea/dnd": "^18.0.1",
-    "@testing-library/dom": "^10.4.0",
-    "@testing-library/jest-dom": "^6.6.3",
-    "@testing-library/react": "^16.3.0",
-    "@testing-library/user-event": "^13.5.0",
-    "jspdf": "^3.0.1",
-    "lucide-react": "^0.525.0",
+    "@testing-library/jest-dom": "^6.1.4",
+    "@testing-library/react": "^14.2.2",
+    "@testing-library/user-event": "^14.5.1",
+    "axios": "^1.6.8",
+    "lucide-react": "^0.375.0",
     "react": "^19.1.0",
-    "react-beautiful-dnd": "^13.1.1",
     "react-dom": "^19.1.0",
-    "react-router-dom": "^7.6.3",
-    "react-scripts": "5.0.1",
-    "web-vitals": "^2.1.4"
-  },
-  "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject"
-  },
-  "eslintConfig": {
-    "extends": [
-      "react-app",
-      "react-app/jest"
-    ]
-  },
-  "browserslist": {
-    "production": [
-      ">0.2%",
-      "not dead",
-      "not op_mini all"
-    ],
-    "development": [
-      "last 1 chrome version",
-      "last 1 firefox version",
-      "last 1 safari version"
-    ]
+    "react-router-dom": "^6.23.1",
+    "uuid": "^9.0.1"
   },
   "devDependencies": {
-    "ajv": "^8.12.0",
-    "ajv-keywords": "^5.1.0"
+    "@vitejs/plugin-react": "^4.2.1",
+    "vite": "^5.2.0"
   }
 }
