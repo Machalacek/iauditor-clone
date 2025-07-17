@@ -325,3 +325,251 @@
   width: 14px;
   height: 14px;
 }
+
+/* TemplateBuilder.css */
+
+/* Container flex will be overridden inline but keep any existing styles here */
+
+.unique-question,
+.other-question {
+  padding: 8px 12px;
+  border: 1px solid #ccc;
+  margin-bottom: 6px;
+  border-radius: 6px;
+  background: white;
+  user-select: none;
+}
+
+.unique-question.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-delete-question {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: #b22222;
+}
+
+.empty-builder-text {
+  color: #999;
+  font-style: italic;
+}
+
+.page-tab {
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-weight: 500;
+  padding: 6px 12px;
+  border-radius: 6px;
+  transition: background-color 0.2s ease;
+}
+
+.page-tab.active {
+  font-weight: bold;
+  color: #007bff;
+  background-color: #cce5ff;
+}
+
+@media (max-width: 768px) {
+  /* On smaller screens hide preview pane */
+  .preview-pane {
+    display: none !important;
+  }
+}
+
+/* TemplateBuilder.css */
+
+/* Container & panes */
+.template-builder-container {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: #f5f5f5;
+  height: 100vh;
+  display: flex;
+  overflow: hidden;
+}
+
+.left-pane {
+  background: white;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+/* Question banks */
+.unique-question,
+.other-question {
+  padding: 8px 12px;
+  border: 1px solid #ccc;
+  margin-bottom: 6px;
+  border-radius: 6px;
+  background: white;
+  user-select: none;
+  cursor: grab;
+}
+
+.unique-question.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Page tab styles */
+.pages-container {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.page-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  padding: 6px 28px 6px 12px;
+  font-weight: 500;
+  background: #f0f0f0;
+  color: black;
+  position: relative;
+}
+
+.page-tab.active {
+  background-color: #007bff;
+  color: white;
+  font-weight: 600;
+}
+
+.page-tab input {
+  font-size: 14px;
+  padding: 4px;
+  border-radius: 4px;
+  border: 1px solid #aaa;
+  flex: 1;
+}
+
+/* Pencil and trash icon buttons in page tab */
+.page-tab button {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+}
+
+.page-tab button:hover {
+  opacity: 0.8;
+}
+
+/* Add page button */
+.add-page-btn {
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid #28a745;
+  background: #28a745;
+  color: white;
+  cursor: pointer;
+}
+
+/* Builder topbar buttons */
+.builder-topbar button {
+  font-weight: 600;
+}
+
+/* Template meta inputs */
+.template-meta input[type='text'],
+.template-meta input[type='file'] {
+  box-sizing: border-box;
+}
+
+/* Builder area */
+.builder-area {
+  background: white;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+/* Form builder drop area */
+.form-builder-drop-area {
+  min-height: 150px;
+  border: 1px dashed #aaa;
+  border-radius: 6px;
+  background: white;
+  overflow-y: auto;
+  padding: 8px;
+  flex: 1;
+}
+
+/* Preview pane */
+.preview-pane {
+  background: #f9f9f9;
+  border-left: 1px solid #ddd;
+  position: relative;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+/* iPhone mockup */
+.iphone-mockup {
+  border-radius: 40px;
+  box-shadow: 0 0 0 8px black, 0 0 20px rgba(0, 0, 0, 0.2);
+  width: 320px;
+  height: 568px;
+  background: white;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+/* Notch */
+.iphone-mockup > div:first-child {
+  width: 160px;
+  height: 30px;
+  background-color: black;
+  border-radius: 0 0 30px 30px;
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+/* Preview questions */
+.question-preview-list > div {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+  font-size: 14px;
+  background-color: #fafafa;
+}
+
+/* Preview close button */
+.preview-pane > button {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: transparent;
+  border: none;
+  font-size: 28px;
+  line-height: 1;
+  font-weight: bold;
+  color: #333;
+  cursor: pointer;
+  user-select: none;
+}
+
+/* Responsive: hide preview on narrow screens */
+@media (max-width: 768px) {
+  .preview-pane {
+    display: none !important;
+  }
+}
