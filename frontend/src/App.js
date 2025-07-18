@@ -1,4 +1,6 @@
+// src/App.js
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
 import TemplateBuilder from './pages/TemplateBuilder';
 import Templates from './pages/Templates';
@@ -11,6 +13,16 @@ import AdminPanel from './pages/AdminPanel';
 import Login from './pages/Login';
 
 import { auth, db } from './firebase';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import {
+  doc,
+  getDoc,
+  updateDoc,
+  collection,
+  getDocs,
+  addDoc,
+} from 'firebase/firestore';
+
 import {
   Home,
   FileText,
@@ -27,36 +39,50 @@ import {
 } from 'lucide-react';
 
 import './App.css';
-import { doc, getDoc } from 'firebase/firestore';
 
 export default function App() {
+  const navigate = useNavigate();
+
   const [user, setUser] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [showMoreMobile, setShowMoreMobile] = useState(false);
 
+  // Listen for auth state changes, record lastSeen, and block deactivated
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged(async (user) => {
-      setUser(user);
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      setUser(firebaseUser);
 
-      if (user) {
-        try {
-          const ref = doc(db, 'users', user.uid);
-          const snap = await getDoc(ref);
-          if (snap.exists()) {
-            setUserProfile(snap.data());
-          } else {
-            setUserProfile({
-              uid: user.uid,
-              email: user.email,
-              name: user.displayName || user.email,
-              role: 'user',
-              team: '',
-            });
-          }
-        } catch (err) {
-          console.error('Failed to load user profile:', err);
+      if (firebaseUser) {
+        const ref = doc(db, 'users', firebaseUser.uid);
+        const snap = await getDoc(ref);
+        const data = snap.exists() ? snap.data() : null;
+
+        // Record lastSeen timestamp
+        await updateDoc(ref, { lastSeen: new Date().toISOString() });
+
+        // If deactivated, immediately sign out and alert
+        if (data?.active === false) {
+          await signOut(auth);
+          setUser(null);
+          alert('Your account is deactivated. Please contact an admin.');
+          setLoadingProfile(false);
+          return;
+        }
+
+        // Otherwise load or initialize profile
+        if (data) {
+          setUserProfile(data);
+        } else {
+          setUserProfile({
+            uid: firebaseUser.uid,
+            email: firebaseUser.email,
+            name: firebaseUser.displayName || firebaseUser.email,
+            role: 'user',
+            team: '',
+            lastSeen: null,
+          });
         }
       }
 
@@ -67,10 +93,13 @@ export default function App() {
   }, []);
 
   const renderContent = () => {
+    const role = userProfile?.role || 'user';
+    const isAdmin = role === 'admin';
+    const canAccessBuilder = isAdmin || role === 'manager';
+
     if (currentPage === 'templateBuilder' && !canAccessBuilder) {
       return <div className="p-6 text-red-500 font-medium">Access denied. Managers and Admins only.</div>;
     }
-
     if (currentPage === 'adminPanel' && !isAdmin) {
       return <div className="p-6 text-red-500 font-medium">Access denied. Admins only.</div>;
     }
@@ -114,10 +143,7 @@ export default function App() {
     return <div className="p-6">Loading...</div>;
   }
 
-  const role = userProfile?.role || 'user';
-  const isAdmin = role === 'admin';
-  const canAccessBuilder = role === 'admin' || role === 'manager';
-  const displayName = userProfile?.name || user?.displayName || user?.email;
+  const displayName = userProfile.name || user.displayName || user.email;
 
   return (
     <div className="app-container">
@@ -129,48 +155,38 @@ export default function App() {
           </div>
 
           <div className={`menu-item ${currentPage === 'dashboard' ? 'active' : ''}`} onClick={() => setCurrentPage('dashboard')}>
-            <Home size={18} />
-            Dashboard
+            <Home size={18} /> Dashboard
           </div>
           <div className={`menu-item ${currentPage === 'templates' ? 'active' : ''}`} onClick={() => setCurrentPage('templates')}>
-            <FileText size={18} />
-            Templates
+            <FileText size={18} /> Templates
           </div>
-          {canAccessBuilder && (
+          {(userProfile.role === 'admin' || userProfile.role === 'manager') && (
             <div className={`submenu-item ${currentPage === 'templateBuilder' ? 'active' : ''}`} onClick={() => setCurrentPage('templateBuilder')}>
-              └ <File size={16} />
-              Template Builder
+              └ <File size={16} /> Template Builder
             </div>
           )}
           <div className={`menu-item ${currentPage === 'completedInspections' ? 'active' : ''}`} onClick={() => setCurrentPage('completedInspections')}>
-            <ClipboardList size={18} />
-            Completed Inspections
+            <ClipboardList size={18} /> Completed Inspections
           </div>
           <div className={`menu-item ${currentPage === 'team' ? 'active' : ''}`} onClick={() => setCurrentPage('team')}>
-            <Users size={18} />
-            Team
+            <Users size={18} /> Team
           </div>
           <div className={`menu-item ${currentPage === 'projects' ? 'active' : ''}`} onClick={() => setCurrentPage('projects')}>
-            <Folder size={18} />
-            Projects
+            <Folder size={18} /> Projects
           </div>
           <div className={`menu-item ${currentPage === 'gear' ? 'active' : ''}`} onClick={() => setCurrentPage('gear')}>
-            <HardHat size={18} />
-            Gear
+            <HardHat size={18} /> Gear
           </div>
           <div className={`menu-item ${currentPage === 'profile' ? 'active' : ''}`} onClick={() => setCurrentPage('profile')}>
-            <UserCircle size={18} />
-            Profile
+            <UserCircle size={18} /> Profile
           </div>
-          {isAdmin && (
+          {userProfile.role === 'admin' && (
             <div className={`menu-item ${currentPage === 'adminPanel' ? 'active' : ''}`} onClick={() => setCurrentPage('adminPanel')}>
-              <ShieldCheck size={18} />
-              Admin
+              <ShieldCheck size={18} /> Admin
             </div>
           )}
-          <div className="menu-item" onClick={() => auth.signOut()}>
-            <Settings size={18} />
-            Log Out
+          <div className="menu-item" onClick={() => signOut(auth)}>
+            <Settings size={18} /> Log Out
           </div>
         </div>
 
@@ -186,20 +202,16 @@ export default function App() {
       {/* Mobile Bottom Nav */}
       <div className="mobile-nav mobile-only">
         <div onClick={() => setCurrentPage('dashboard')}>
-          <Home size={22} />
-          <div>Home</div>
+          <Home size={22} /><div>Home</div>
         </div>
         <div onClick={() => setCurrentPage('templates')}>
-          <FileText size={22} />
-          <div>Templates</div>
+          <FileText size={22} /><div>Templates</div>
         </div>
         <div onClick={() => setCurrentPage('completedInspections')}>
-          <ClipboardList size={22} />
-          <div>Inspections</div>
+          <ClipboardList size={22} /><div>Inspections</div>
         </div>
         <div onClick={() => setShowMoreMobile(!showMoreMobile)}>
-          <MoreHorizontal size={22} />
-          <div>More</div>
+          <MoreHorizontal size={22} /><div>More</div>
         </div>
       </div>
 
@@ -218,17 +230,17 @@ export default function App() {
           <div onClick={() => { setCurrentPage('profile'); setShowMoreMobile(false); }}>
             <UserCircle size={18} /> Profile
           </div>
-          {canAccessBuilder && (
+          {(userProfile.role === 'admin' || userProfile.role === 'manager') && (
             <div onClick={() => { setCurrentPage('templateBuilder'); setShowMoreMobile(false); }}>
               <File size={18} /> Template Builder
             </div>
           )}
-          {isAdmin && (
+          {userProfile.role === 'admin' && (
             <div onClick={() => { setCurrentPage('adminPanel'); setShowMoreMobile(false); }}>
               <ShieldCheck size={18} /> Admin
             </div>
           )}
-          <div onClick={() => { auth.signOut(); setShowMoreMobile(false); }}>
+          <div onClick={() => { signOut(auth); setShowMoreMobile(false); }}>
             <Settings size={18} /> Log Out
           </div>
         </div>
