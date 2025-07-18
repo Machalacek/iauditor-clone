@@ -5,11 +5,15 @@ import TemplateBuilder from './pages/TemplateBuilder';
 import Templates from './pages/Templates';
 import CompletedInspections from './pages/CompletedInspections';
 import Projects from './pages/Projects';
+import ArchivedProjects from './pages/ArchivedProjects'; // <-- new!
 import Team from './pages/Team';
 import Gear from './pages/Gear';
 import Profile from './pages/Profile';
 import AdminPanel from './pages/AdminPanel';
 import Login from './pages/Login';
+
+// Zustand store for projects
+import './store/projectStore';
 
 import { auth, db } from './firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
@@ -39,6 +43,8 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [showMoreMobile, setShowMoreMobile] = useState(false);
   const [showPlusMenu, setShowPlusMenu] = useState(false);
+
+  const [showArchivedProjects, setShowArchivedProjects] = useState(false); // <-- NEW
 
   const plusBtnRef = useRef(null);
   const plusMenuRef = useRef(null);
@@ -137,7 +143,9 @@ export default function App() {
       case 'completedInspections':
         return <CompletedInspections />;
       case 'projects':
-        return <Projects />;
+        return showArchivedProjects
+          ? <ArchivedProjects onBack={() => setShowArchivedProjects(false)} />
+          : <Projects onShowArchived={() => setShowArchivedProjects(true)} />;
       case 'team':
         return <Team />;
       case 'gear':
@@ -166,7 +174,10 @@ export default function App() {
               className={`menu-item ${
                 currentPage === 'dashboard' ? 'active' : ''
               }`}
-              onClick={() => setCurrentPage('dashboard')}
+              onClick={() => {
+                setCurrentPage('dashboard');
+                setShowArchivedProjects(false);
+              }}
             >
               <Home size={18} /> Dashboard
             </div>
@@ -174,7 +185,10 @@ export default function App() {
               className={`menu-item ${
                 currentPage === 'templates' ? 'active' : ''
               }`}
-              onClick={() => setCurrentPage('templates')}
+              onClick={() => {
+                setCurrentPage('templates');
+                setShowArchivedProjects(false);
+              }}
             >
               <FileText size={18} /> Templates
             </div>
@@ -183,7 +197,10 @@ export default function App() {
                 className={`menu-item ${
                   currentPage === 'templateBuilder' ? 'active' : ''
                 }`}
-                onClick={() => setCurrentPage('templateBuilder')}
+                onClick={() => {
+                  setCurrentPage('templateBuilder');
+                  setShowArchivedProjects(false);
+                }}
               >
                 <File size={18} /> Template Builder
               </div>
@@ -192,7 +209,10 @@ export default function App() {
               className={`menu-item ${
                 currentPage === 'completedInspections' ? 'active' : ''
               }`}
-              onClick={() => setCurrentPage('completedInspections')}
+              onClick={() => {
+                setCurrentPage('completedInspections');
+                setShowArchivedProjects(false);
+              }}
             >
               <ClipboardList size={18} /> Completed Inspections
             </div>
@@ -200,7 +220,10 @@ export default function App() {
               className={`menu-item ${
                 currentPage === 'projects' ? 'active' : ''
               }`}
-              onClick={() => setCurrentPage('projects')}
+              onClick={() => {
+                setCurrentPage('projects');
+                setShowArchivedProjects(false);
+              }}
             >
               <Folder size={18} /> Projects
             </div>
@@ -208,7 +231,10 @@ export default function App() {
               className={`menu-item ${
                 currentPage === 'team' ? 'active' : ''
               }`}
-              onClick={() => setCurrentPage('team')}
+              onClick={() => {
+                setCurrentPage('team');
+                setShowArchivedProjects(false);
+              }}
             >
               <Users size={18} /> Team
             </div>
@@ -216,7 +242,10 @@ export default function App() {
               className={`menu-item ${
                 currentPage === 'gear' ? 'active' : ''
               }`}
-              onClick={() => setCurrentPage('gear')}
+              onClick={() => {
+                setCurrentPage('gear');
+                setShowArchivedProjects(false);
+              }}
             >
               <HardHat size={18} /> Gear
             </div>
@@ -225,7 +254,10 @@ export default function App() {
                 className={`menu-item ${
                   currentPage === 'adminPanel' ? 'active' : ''
                 }`}
-                onClick={() => setCurrentPage('adminPanel')}
+                onClick={() => {
+                  setCurrentPage('adminPanel');
+                  setShowArchivedProjects(false);
+                }}
               >
                 <ShieldCheck size={18} /> Admin
               </div>
@@ -238,7 +270,10 @@ export default function App() {
               className={`menu-item ${
                 currentPage === 'profile' ? 'active' : ''
               }`}
-              onClick={() => setCurrentPage('profile')}
+              onClick={() => {
+                setCurrentPage('profile');
+                setShowArchivedProjects(false);
+              }}
             >
               <UserCircle size={18} /> Profile
             </div>
@@ -259,11 +294,17 @@ export default function App() {
 
       {/* Mobile Bottom Nav */}
       <div className="mobile-nav mobile-only">
-        <div onClick={() => setCurrentPage('dashboard')}>
+        <div onClick={() => {
+          setCurrentPage('dashboard');
+          setShowArchivedProjects(false);
+        }}>
           <Home size={22} />
           <div>Home</div>
         </div>
-        <div onClick={() => setCurrentPage('templates')}>
+        <div onClick={() => {
+          setCurrentPage('templates');
+          setShowArchivedProjects(false);
+        }}>
           <FileText size={22} />
           <div>Templates</div>
         </div>
@@ -277,7 +318,10 @@ export default function App() {
         >
           <PlusCircle size={28} />
         </div>
-        <div onClick={() => setCurrentPage('completedInspections')}>
+        <div onClick={() => {
+          setCurrentPage('completedInspections');
+          setShowArchivedProjects(false);
+        }}>
           <ClipboardList size={22} />
           <div>Inspections</div>
         </div>
@@ -300,6 +344,7 @@ export default function App() {
             onClick={() => {
               setCurrentPage('templates');
               setShowPlusMenu(false);
+              setShowArchivedProjects(false);
             }}
           >
             <FileText size={18} /> Start Inspection
@@ -308,6 +353,7 @@ export default function App() {
             onClick={() => {
               setCurrentPage('gear');
               setShowPlusMenu(false);
+              setShowArchivedProjects(false);
             }}
           >
             <HardHat size={18} /> Add Gear
@@ -317,6 +363,7 @@ export default function App() {
               onClick={() => {
                 setCurrentPage('team');
                 setShowPlusMenu(false);
+                setShowArchivedProjects(false);
               }}
             >
               <Users size={18} /> Add Member
@@ -338,7 +385,7 @@ export default function App() {
         <div
           onClick={() => {
             setCurrentPage('projects');
-            setShowMoreMobile(false);
+            setShowArchivedProjects(false);
           }}
         >
           <Folder size={18} /> Projects
@@ -346,7 +393,7 @@ export default function App() {
         <div
           onClick={() => {
             setCurrentPage('team');
-            setShowMoreMobile(false);
+            setShowArchivedProjects(false);
           }}
         >
           <Users size={18} /> Team
@@ -354,7 +401,7 @@ export default function App() {
         <div
           onClick={() => {
             setCurrentPage('gear');
-            setShowMoreMobile(false);
+            setShowArchivedProjects(false);
           }}
         >
           <HardHat size={18} /> Gear
@@ -363,7 +410,7 @@ export default function App() {
           <div
             onClick={() => {
               setCurrentPage('templateBuilder');
-              setShowMoreMobile(false);
+              setShowArchivedProjects(false);
             }}
           >
             <File size={18} /> Template Builder
@@ -373,7 +420,7 @@ export default function App() {
           <div
             onClick={() => {
               setCurrentPage('adminPanel');
-              setShowMoreMobile(false);
+              setShowArchivedProjects(false);
             }}
           >
             <ShieldCheck size={18} /> Admin
@@ -383,7 +430,7 @@ export default function App() {
         <div
           onClick={() => {
             setCurrentPage('profile');
-            setShowMoreMobile(false);
+            setShowArchivedProjects(false);
           }}
         >
           <UserCircle size={18} /> Profile
@@ -391,7 +438,7 @@ export default function App() {
         <div
           onClick={() => {
             signOut(auth);
-            setShowMoreMobile(false);
+            setShowArchivedProjects(false);
           }}
         >
           <Settings size={18} /> Log Out
