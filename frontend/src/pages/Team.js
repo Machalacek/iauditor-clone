@@ -71,7 +71,6 @@ export default function Team() {
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
-
   const [sortBy, setSortBy] = useState('name');
   const [sortAsc, setSortAsc] = useState(true);
 
@@ -178,7 +177,7 @@ export default function Team() {
     setMenuOpenFor(null);
   };
 
-  // invite + email
+  // Invite + EmailJS
   const handleInvite = async e => {
     e.preventDefault();
     const ref = await addDoc(collection(db, 'users'), {
@@ -209,7 +208,7 @@ export default function Team() {
     setShowModal(false);
   };
 
-  // export CSV
+  // Export CSV
   const exportCSV = () => {
     const rows = [
       ['Name', 'Status', 'Last seen', 'Role'],
@@ -455,7 +454,7 @@ export default function Team() {
           filteredMembers.map(member => (
             <React.Fragment key={member.id}>
               {/* Mobile Card */}
-              <div className="block md:hidden bg-white rounded-2xl shadow p-4 border-l-4 border-blue-500 grid grid-cols-[1fr_auto] gap-y-2">
+              <div className="md:hidden grid bg-white rounded-2xl shadow p-4 border-l-4 border-blue-500 grid-cols-[1fr_auto] gap-y-2">
                 <div>
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center text-gray-600 font-semibold">

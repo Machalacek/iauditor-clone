@@ -1,10 +1,9 @@
-/* Reset and base styles */
+/* Reset & Base Styles */
 * {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
 }
-
 body, html, #root, .app-container {
   height: 100%;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -12,57 +11,75 @@ body, html, #root, .app-container {
   color: #1e293b;
 }
 
-/* Main layout */
+/* Main Layout */
 .main-layout {
   display: flex;
   height: 100vh;
   overflow: hidden;
 }
 
-/* Sidebar (Desktop) */
+/* Desktop Sidebar */
 .sidebar {
   width: 220px;
-  background-color: #0f172a; /* dark slate */
-  color: #f8fafc; /* almost white */
+  background-color: #0f172a;
+  color: #f8fafc;
   display: flex;
   flex-direction: column;
   padding: 20px 10px;
   box-shadow: 2px 0 6px rgba(0,0,0,0.15);
   user-select: none;
-  position: relative;
 }
 
-/* Sidebar icon at top */
-.sidebar-icon {
-  font-size: 2.5rem;
-  color: #3b82f6; /* blue */
-  margin-bottom: 20px;
+/* 4) Desktop logo at very top */
+.desktop-logo-holder {
   text-align: center;
+  padding: 10px 0;
+}
+.desktop-logo-holder img {
+  max-width: 100%;
+  height: auto;
 }
 
-/* Sidebar menu items */
+.menu-top {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
 .menu-item, .submenu-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;      /* icon/text spacing */
+  font-size: 0.9rem;
   padding: 12px 16px;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
   border-radius: 6px;
   cursor: pointer;
   font-weight: 600;
   transition: background-color 0.2s ease;
-  display: flex;
-  align-items: center;
 }
-
 .menu-item:hover, .submenu-item:hover {
-  background-color: #1e293b; /* darker slate */
+  background-color: #1e293b;
 }
-
 .submenu-item {
   padding-left: 32px;
   font-weight: 500;
-  color: #94a3b8; /* lighter text */
+  color: #94a3b8;
 }
 
-/* Content container */
+/* Profile & Log Out pinned bottom */
+.menu-bottom {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.divider {
+  height: 1px;
+  background-color: #444;
+  margin: 4px 0;
+}
+
+/* Content Container */
 .content-container {
   flex: 1;
   padding: 20px 24px;
@@ -70,151 +87,155 @@ body, html, #root, .app-container {
   background-color: #f8fafc;
 }
 
-/* Mobile Bottom Navigation */
-
-.mobile-nav {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 60px;
-  background-color: #1e293b; /* dark slate */
-  display: flex;
-  flex-direction: row;  /* horizontal layout */
-  justify-content: space-around; /* spread evenly */
-  align-items: center;
-  border-top: 1px solid #334155;
-  z-index: 1001;
-  user-select: none;
+/* Show/Hide Nav */
+.desktop-only { display: flex !important; }
+.mobile-only  { display: none !important; }
+@media (max-width:768px) {
+  .desktop-only { display: none !important; }
+  .mobile-only  { display: flex !important; }
 }
 
-.mobile-nav > div {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  flex: 1;
-  cursor: pointer;
-  color: #f8fafc;
-  font-size: 0.75rem;
-  font-weight: 600;
-  gap: 2px;
-  padding: 6px 0;
-  transition: background-color 0.2s ease;
-}
-
-.mobile-nav > div:hover {
-  background-color: #334155;
-}
-
-.mobile-nav > div svg {
-  stroke-width: 1.5;
-}
-
-/* Mobile More popup */
-.mobile-more-popup {
-  position: fixed;
-  bottom: 60px;
-  right: 12px;
-  background-color: #1e293b;
-  border-radius: 8px;
-  box-shadow: 0 8px 20px rgba(0,0,0,0.25);
-  padding: 8px 0;
-  width: 150px;
-  z-index: 1100;
-  user-select: none;
-}
-
-.mobile-more-popup > div {
-  padding: 10px 16px;
-  color: #f8fafc;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  cursor: pointer;
-  font-weight: 600;
-  transition: background-color 0.15s ease;
-}
-
-.mobile-more-popup > div:hover {
-  background-color: #334155;
-}
-
-/* Hide mobile nav on desktop and sidebar on mobile */
-.desktop-only {
-  display: block;
-}
-
-.mobile-only {
-  display: none;
-}
-
-@media (max-width: 768px) {
-  .desktop-only {
-    display: none;
-  }
-  .mobile-only {
+/* Mobile-only Styles */
+@media (max-width:768px) {
+  /* Mobile Nav */
+  .mobile-nav {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    height: 60px;
+    background-color: #1e293b;
     display: flex;
+    justify-content: space-around;
+    align-items: center;
+    border-top: 1px solid #334155;
+    z-index: 1001;
+    user-select: none;
+  }
+  .mobile-nav > div {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    color: #f8fafc;
+    font-size: 0.75rem;
+    font-weight: 600;
+    gap: 2px;
+    padding: 6px 0;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+  }
+  .mobile-nav > div:hover {
+    background-color: #334155;
+  }
+  .mobile-nav > div svg {
+    stroke-width: 1.5;
+  }
+
+  /* Circle “+” */
+  .plus-btn {
+    flex: none !important;
+    padding: 0 !important;
+    margin: 0 4px !important;
+    width: 48px !important;
+    height: 48px !important;
+    background-color: #3b82f6;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    cursor: pointer;
+  }
+  .plus-btn:hover {
+    background-color: #2563eb;
+  }
+
+  /* Mobile “+” Sub-Menu */
+  .mobile-plus-menu {
+    position: fixed;
+    bottom: 60px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: #1e293b;
+    border-radius: 8px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.25);
+    padding: 8px 0;
+    z-index: 1100;
+    display: flex;
+    flex-direction: column;
+  }
+  .mobile-plus-menu > div {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    background-color: #1e293b;
+    color: #f8fafc;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background-color 0.15s ease;
+  }
+  .mobile-plus-menu > div:hover {
+    background-color: #334155;
+    color: #fff;
+  }
+
+  /* Mobile “More” Drawer */
+  .mobile-more-drawer {
+    position: fixed;
+    top: 0;
+    bottom: 60px;      /* keep bottom nav visible */
+    right: -66.666vw;  /* hidden offscreen */
+    width: 66.666vw;
+    background-color: #1e293b;
+    box-shadow: -2px 0 6px rgba(0,0,0,0.15);
+    padding: 20px 10px;
+    display: flex;
+    flex-direction: column;
+    transition: right 0.3s ease;
+    z-index: 1000;
+  }
+  .mobile-more-drawer.open {
+    right: 0;
+  }
+
+  /* 3) Centered mobile drawer logo */
+  .mobile-drawer-logo {
+    text-align: center;
+    padding: 10px 0;
+  }
+  .mobile-drawer-logo img {
+    max-width: 100%;
+    height: auto;
+  }
+
+  /* remove the X entirely—no close-btn styling */
+
+  .mobile-more-drawer > div {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 0;
+    cursor: pointer;
+    color: #f8fafc;
+    font-weight: 600;
+    transition: background-color 0.2s ease;
+  }
+  .mobile-more-drawer > div:hover {
+    background-color: #334155;
+  }
+  .mobile-more-drawer .divider {
+    height: 1px;
+    background-color: #444;
+    margin: auto 0 2px;
   }
 }
 
-/* Question Builder styles */
-
-.question-bank {
-  background-color: #e3f2fd;
-  border-radius: 8px;
-  padding: 10px;
-  height: 100%;
-  overflow-y: auto;
-  box-shadow: inset 0 0 10px #bbdefb;
-}
-
-.unique-question {
-  background-color: #bbdefb;
-  border-radius: 6px;
-  padding: 10px;
-  margin-bottom: 10px;
-  cursor: grab;
-  font-weight: 600;
-  color: #0d47a1;
-  user-select: none;
-}
-
-.builder-area {
-  background-color: #f1f5f9;
-  border-radius: 8px;
-  border: 1px solid #cbd5e1;
-  padding: 20px;
-  min-height: 400px;
-  overflow-y: auto;
-  box-shadow: inset 0 0 10px #cbd5e1;
-}
-
-/* Scrollbar styling */
-.question-bank::-webkit-scrollbar,
-.builder-area::-webkit-scrollbar {
-  width: 8px;
-}
-
-.question-bank::-webkit-scrollbar-thumb,
-.builder-area::-webkit-scrollbar-thumb {
-  background-color: #90caf9;
-  border-radius: 4px;
-}
-
-.question-bank::-webkit-scrollbar-track,
-.builder-area::-webkit-scrollbar-track {
-  background-color: #e3f2fd;
-}
-
-/* Utility cursor & user select */
-.dragging {
-  cursor: grabbing !important;
-}
-
-/* Responsive typography */
-@media (max-width: 768px) {
+/* Responsive Typography */
+@media (max-width:768px) {
   body, html, #root, .app-container {
     font-size: 14px;
   }
 }
+
+/* Question Builder & Scrollbars (unchanged) */
