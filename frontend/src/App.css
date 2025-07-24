@@ -238,4 +238,9 @@ body, html, #root, .app-container {
   }
 }
 
-/* Question Builder & Scrollbars (unchanged) */
+.divider {
+  height: 1px;
+  background: #222b45;
+  margin: 18px 0;
+  opacity: 0.12;
+}

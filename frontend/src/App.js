@@ -13,6 +13,7 @@ import AdminPanel from './pages/AdminPanel';
 import Login from './pages/Login';
 import GearDetail from './pages/GearDetail';
 import { useUIStore } from "./store/uiStore"; 
+import NotificationBell from "./components/NotificationBell";
 
 // Zustand store for projects
 import './store/projectStore';
@@ -20,6 +21,7 @@ import './store/projectStore';
 import { auth, db } from './firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { useProjectStore } from "./store/projectStore";
 
 import {
   Home,
@@ -54,6 +56,12 @@ export default function App() {
   const plusMenuRef = useRef(null);
   const moreBtnRef = useRef(null);
   const moreDrawerRef = useRef(null);
+  const { projects, fetchProjects } = useProjectStore();
+  useEffect(() => {
+    if (!projects || projects.length === 0) {
+      fetchProjects && fetchProjects();
+    }
+  }, [projects, fetchProjects]);
 
   // Listen for auth changes & load profile
   useEffect(() => {
@@ -173,7 +181,6 @@ export default function App() {
           <div className="desktop-logo-holder">
             <img src="/assets/logo.png" alt="Logo" />
           </div>
-
           <div className="menu-top">
             <div
               className={`menu-item ${
@@ -290,6 +297,9 @@ export default function App() {
 
         {/* Main Content */}
         <div className="content-container">
+          <div style={{display: "flex", justifyContent: "flex-end", marginBottom: 12}}>
+            <NotificationBell />
+          </div>
           {renderContent()}
         </div>
       </div>
@@ -383,14 +393,28 @@ export default function App() {
       )}
 
       {/* Mobile “More” Drawer */}
-      <div
-        ref={moreDrawerRef}
-        className={`mobile-more-drawer mobile-only ${
-          showMoreMobile ? 'open' : ''
-        }`}
-      >
+      <div ref={moreDrawerRef} className={`mobile-more-drawer mobile-only ${showMoreMobile ? 'open' : ''}`}>
+        {/* Notification Bell aligned right */}
+        <div style={{
+          width: "100%",
+          display: "flex",
+          justifyContent: "flex-end",
+          alignItems: "center",
+          marginTop: "10px",
+          marginBottom: "-8px"
+        }}>
+          <NotificationBell />
+        </div>
         <div className="mobile-drawer-logo">
           <img src="/assets/logo.png" alt="Logo" />
+        </div>
+        <div
+          onClick={() => {
+            setCurrentPage('dashboard');
+            setShowArchivedProjects(false);
+          }}
+        >
+          <Home size={18} /> Dashboard
         </div>
         <div
           onClick={() => {

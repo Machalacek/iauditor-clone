@@ -1,5 +1,4 @@
 // src/components/GearTable.jsx
-
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useGearStore, defaultFields } from "../store/gearStore";
 import { useTeamStore } from "../store/teamStore";
@@ -27,6 +26,7 @@ import {
   doc,
   getDoc,
   onSnapshot,
+  arrayUnion,
 } from "firebase/firestore";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import Papa from "papaparse";
@@ -202,12 +202,7 @@ export function GearTable({ setSelectedGear, setCurrentPage }) {
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "gear"), (snap) => {
-      setGear(
-        snap.docs.map((d) => ({
-          ...d.data(),
-          id: d.id,
-        }))
-      );
+      setGear(snap.docs.map((d) => ({ ...d.data(), id: d.id })));
     });
     getDocs(collection(db, "users")).then((snap) =>
       setTeam(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
@@ -284,6 +279,72 @@ export function GearTable({ setSelectedGear, setCurrentPage }) {
     return matchesSearch && matchesCategory && matchesStatus;
   });
 
+  // --- SINGLE VERSION ONLY! ---
+  const handleSaveGear = async (data, id = null) => {
+    if (id) {
+      await updateDoc(doc(db, "gear", id), data);
+    } else {
+      await addDoc(collection(db, "gear"), data);
+    }
+    setShowModal(false);
+  };
+  const handleDeleteGear = async (id) => {
+    await deleteDoc(doc(db, "gear", id));
+    setMenuOpenFor(null);
+  };
+// ---- Transfer handler functio! ----
+const handleGearTransfer = async (itemId, newAssignedTo, newProject) => {
+  const gearRef = doc(db, "gear", itemId);
+  const gearSnap = await getDoc(gearRef);
+  const gearData = gearSnap.data();
+
+  // 1. Create a unique notification ID
+  const notifId = `${itemId}_${Date.now()}`;
+
+  // 2. Create the notification object
+  const notification = {
+    id: notifId,
+    type: "gear-transfer-request",
+    gearId: itemId,
+    gearName: gearData.name,
+    fromUserId: gearData.assignedTo || "",
+    fromProjectId: gearData.assignedProject || "",
+    toUserId: newAssignedTo,
+    toProjectId: newProject || "",
+    requestedBy: auth.currentUser.uid,
+    requestedAt: new Date().toISOString(),
+    pending: true,
+    message: "",
+  };
+
+  // 3. Write the pendingTransfer object to gear (including notifId!)
+  await updateDoc(gearRef, {
+    pendingTransfer: {
+      notifId, // <--- THIS IS CRUCIAL!
+      to: { userId: newAssignedTo, projectId: newProject || "" },
+      from: { userId: gearData.assignedTo || "", projectId: gearData.assignedProject || "" },
+      date: new Date().toISOString(),
+      requestedBy: auth.currentUser.uid,
+    }
+  });
+
+  // 4. Send the notification to the correct users
+  const usersSnap = await getDocs(collection(db, "users"));
+  const users = usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  const notifees = users.filter(u =>
+    u.role === "admin" ||
+    u.role === "manager" ||
+    u.id === newAssignedTo
+  );
+  await Promise.all(notifees.map(u =>
+    updateDoc(doc(db, "users", u.id), {
+      notifications: arrayUnion(notification)
+    })
+  ));
+
+  setShowTransferModal(false);
+};
+
   // ----------- 3-dot menu position/edge logic -----------
   const handleMenuOpen = (id) => {
     setMenuOpenFor(prev => prev === id ? null : id);
@@ -305,19 +366,6 @@ export function GearTable({ setSelectedGear, setCurrentPage }) {
         });
       }
     }, 0);
-  };
-
-  const handleSaveGear = async (data, id = null) => {
-    if (id) {
-      await updateDoc(doc(db, "gear", id), data);
-    } else {
-      await addDoc(collection(db, "gear"), data);
-    }
-    setShowModal(false);
-  };
-  const handleDeleteGear = async (id) => {
-    await deleteDoc(doc(db, "gear", id));
-    setMenuOpenFor(null);
   };
 
   function handleAddField() {
@@ -356,6 +404,98 @@ export function GearTable({ setSelectedGear, setCurrentPage }) {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  // --- Add Pending Transfer Banner Helpers Below ---
+  const gearList = gear; // or use whatever you call your main gear array
+  const currentUserId = auth.currentUser?.uid;
+
+  function displayUser(id) {
+    if (!id) return "—";
+    const user = team.find((u) => u.id === id);
+    return user ? user.name || user.email || id : id;
+  }
+  function displayProject(id) {
+    if (!id) return "—";
+    const project = projects.find((p) => p.id === id);
+    return project ? project.name || id : id;
+  }
+
+  // Accept/Deny handler for banner
+  async function handlePendingActionFromTable(g, accept) {
+    if (!g || !g.pendingTransfer) return;
+    const gearRef = doc(db, "gear", g.id);
+    const gearSnap = await getDoc(gearRef);
+    const gearData = gearSnap.data();
+    let activity = Array.isArray(gearData.activity) ? gearData.activity : [];
+    const pending = gearData.pendingTransfer;
+
+    async function updateNotificationStatus(notifId, decision) {
+      const usersSnap = await getDocs(collection(db, "users"));
+      const users = usersSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      const targets = users.filter((u) =>
+        (u.notifications || []).some((n) => n.id === notifId)
+      );
+      await Promise.all(
+        targets.map((u) =>
+          updateDoc(doc(db, "users", u.id), {
+            notifications: (u.notifications || []).map((n) =>
+              n.id === notifId ? { ...n, pending: false, decision } : n
+            ),
+          })
+        )
+      );
+    }
+
+    if (accept) {
+      await updateDoc(gearRef, {
+        assignedTo: pending.to.userId,
+        assignedProject: pending.to.projectId || "",
+        pendingTransfer: null,
+        activity: [
+          ...activity,
+          {
+            type: "transfer-accepted",
+            date: new Date().toISOString(),
+            from: {
+              assignedTo: pending.from.userId,
+              assignedProject: pending.from.projectId,
+            },
+            to: {
+              assignedTo: pending.to.userId,
+              assignedProject: pending.to.projectId,
+            },
+            by: currentUserId,
+          },
+        ],
+      });
+      if (pending.notifId) {
+        await updateNotificationStatus(pending.notifId, "accepted");
+      }
+    } else {
+      await updateDoc(gearRef, {
+        pendingTransfer: null,
+        activity: [
+          ...activity,
+          {
+            type: "transfer-denied",
+            date: new Date().toISOString(),
+            from: {
+              assignedTo: pending.from.userId,
+              assignedProject: pending.from.projectId,
+            },
+            to: {
+              assignedTo: pending.to.userId,
+              assignedProject: pending.to.projectId,
+            },
+            by: currentUserId,
+          },
+        ],
+      });
+      if (pending.notifId) {
+        await updateNotificationStatus(pending.notifId, "denied");
+      }
+    }
+  }
+
   // ----------- HEADER AND BUTTONS -----------
   const renderHeader = () => (
     <div className="flex flex-col gap-2 mb-4">
@@ -380,7 +520,6 @@ export function GearTable({ setSelectedGear, setCurrentPage }) {
               </button>
             </>
           )}
-          {/* --- Transfer Equipment Button --- */}
           <button
             onClick={e => { e.stopPropagation(); setShowTransferModal(true); }}
             className="bg-green-600 text-white hover:bg-green-700 rounded-lg px-4 py-2 text-sm font-semibold transition flex items-center"
@@ -393,7 +532,6 @@ export function GearTable({ setSelectedGear, setCurrentPage }) {
           >
             + Add Equipment
           </button>
-          {/* Gear icon with menu */}
           <div className="relative">
             <button
               className="p-2 rounded-full hover:bg-gray-100"
@@ -458,7 +596,6 @@ export function GearTable({ setSelectedGear, setCurrentPage }) {
           </div>
         </div>
       </div>
-      {/* Search and filter */}
       <div className="flex flex-row items-center gap-2">
         <input
           type="text"
@@ -518,6 +655,52 @@ export function GearTable({ setSelectedGear, setCurrentPage }) {
           )}
         </div>
       </div>
+
+      {/* --- Transfer Pending Acceptance Notices --- */}
+      {gearList
+        .filter(g => g.pendingTransfer)
+        .map(g => {
+          const canApprove =
+            ["admin", "manager"].includes(currentUserRole) ||
+            g.pendingTransfer.to.userId === currentUserId;
+          return (
+            <div key={g.id} className="mb-3 p-4 rounded-xl bg-yellow-50 border border-yellow-300 flex flex-col md:flex-row items-center md:gap-3 gap-2">
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-yellow-800">Transfer Pending Acceptance:</span>
+              </div>
+              <div className="flex-1 text-sm text-yellow-700">
+                <div>
+                  <b>To:</b> {displayUser(g.pendingTransfer.to.userId)}
+                  {g.pendingTransfer.to.projectId && <> (<b>Project:</b> {displayProject(g.pendingTransfer.to.projectId)})</>}
+                </div>
+                <div>
+                  <b>From:</b> {displayUser(g.pendingTransfer.from.userId)}
+                  {g.pendingTransfer.from.projectId && <> (<b>Project:</b> {displayProject(g.pendingTransfer.from.projectId)})</>}
+                </div>
+                <div>
+                  <span className="text-xs">Requested: {new Date(g.pendingTransfer.date).toLocaleString()}</span>
+                </div>
+              </div>
+              {canApprove && (
+                <div className="flex gap-2 mt-2 md:mt-0">
+                  <button
+                    className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
+                    onClick={() => handlePendingActionFromTable(g, true)}
+                  >
+                    Accept
+                  </button>
+                  <button
+                    className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-700"
+                    onClick={() => handlePendingActionFromTable(g, false)}
+                  >
+                    Deny
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })
+      }
     </div>
   );
 
@@ -733,30 +916,13 @@ export function GearTable({ setSelectedGear, setCurrentPage }) {
       {/* --- Transfer Equipment Modal --- */}
       {showTransferModal && (
         <div className="fixed inset-0 bg-black bg-opacity-30 z-50 flex items-center justify-center">
-         <div ref={transferModalRef} className="relative z-50">
+          <div ref={transferModalRef} className="relative z-50">
             <TransferEquipmentModal
               gearList={gear}
               team={team}
               projects={projects}
               onClose={() => setShowTransferModal(false)}
-              onTransfer={async (itemId, newAssignedTo, newProject, fromSig, toSig) => {
-                const gearDocRef = doc(db, "gear", itemId);
-                const gearDoc = await getDoc(gearDocRef);
-                const prev = gearDoc.data();
-                await updateDoc(gearDocRef, {
-                  pendingTransfer: {
-                    to: { userId: newAssignedTo, projectId: newProject },
-                    from: {
-                      userId: prev.assignedTo || "",
-                      projectId: prev.assignedProject || "",
-                    },
-                    date: new Date().toISOString(),
-                    fromSig,
-                    toSig,
-                  }
-                });
-                setShowTransferModal(false);
-              }}
+              onTransfer={handleGearTransfer}
             />
           </div>
         </div>
@@ -777,6 +943,7 @@ export function GearTable({ setSelectedGear, setCurrentPage }) {
           isAdminOrManager={isAdminOrManager}
         />
       )}
+
       {/* --- Category Modal --- */}
       {showCatModal && (
         <div className="fixed inset-0 bg-black bg-opacity-30 z-50 flex items-center justify-center">
@@ -869,6 +1036,7 @@ export function GearTable({ setSelectedGear, setCurrentPage }) {
           </div>
         </div>
       )}
+
       {/* --- Fields Modal --- */}
       {showFieldsModal && (
         <div className="fixed inset-0 bg-black bg-opacity-30 z-50 flex items-center justify-center">
