@@ -1,0 +1,575 @@
+.template-builder-container {
+  display: flex;
+  flex-wrap: nowrap;
+  height: 100vh;
+  padding: 20px;
+  box-sizing: border-box;
+  gap: 20px;
+  background: #f9f9f9;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.question-bank {
+  width: 280px;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  background: white;
+  border-radius: 8px;
+  padding: 15px;
+  box-shadow: 0 0 8px rgb(0 0 0 / 0.1);
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.question-bank h3 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: #333;
+}
+
+.unique-question-list {
+  margin-bottom: 25px;
+}
+
+.unique-question {
+  background-color: #cce5ff;
+  color: #004085;
+  padding: 10px 15px;
+  margin-bottom: 10px;
+  border-radius: 6px;
+  cursor: grab;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.1);
+  transition: background-color 0.3s ease;
+  user-select: none;
+}
+
+.unique-question.disabled {
+  background-color: #d3d3d3;
+  color: #666;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.other-question-list {
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+.other-question {
+  background-color: #eee;
+  color: #333;
+  padding: 10px 15px;
+  margin-bottom: 10px;
+  border-radius: 6px;
+  cursor: grab;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.1);
+  user-select: none;
+}
+
+.builder-area {
+  flex: 1;
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  min-height: 500px;
+  overflow: hidden;
+  box-shadow: 0 0 12px rgb(0 0 0 / 0.1);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.page-tabs {
+  display: flex;
+  align-items: center;
+  margin-bottom: 15px;
+  gap: 10px;
+  flex-wrap: nowrap;
+  user-select: none;
+  overflow-x: auto;
+}
+
+.page-tab {
+  background-color: #e7e7e7;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  color: #333;
+  transition: background-color 0.3s ease;
+  margin-right: 6px;
+  display: flex;
+  align-items: center;
+}
+
+.page-tab-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  user-select: none;
+}
+
+.page-tab-wrapper.active .page-tab {
+  background-color: #007bff;
+  color: white;
+  box-shadow: 0 0 6px rgba(0, 123, 255, 0.5);
+}
+
+.page-tab:hover:not(.active) {
+  background-color: #d0d0d0;
+}
+
+/* Delete button for pages (trash icon) */
+.btn-delete-page {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  color: #555;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s ease;
+  flex-shrink: 0;
+  border-radius: 3px;
+}
+
+.btn-delete-page:hover {
+  color: #c82333;
+  background-color: #f8d7da;
+}
+
+/* Adjust trash icon size */
+.btn-delete-page svg {
+  width: 14px;
+  height: 14px;
+}
+
+.btn-add-page {
+  background-color: #28a745;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: white;
+  font-weight: 600;
+  transition: background-color 0.3s ease;
+  user-select: none;
+}
+
+.btn-add-page:hover {
+  background-color: #218838;
+}
+
+.builder-topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #ddd;
+  margin-bottom: 15px;
+  flex-wrap: wrap;
+}
+
+.pages-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+}
+
+.save-template-btn {
+  background-color: #007bff;
+  border: none;
+  padding: 8px 18px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: white;
+  font-weight: 700;
+  transition: background-color 0.3s ease;
+  user-select: none;
+}
+
+.save-template-btn:hover {
+  background-color: #0056b3;
+}
+
+.form-builder-drop-area {
+  flex: 1;
+  overflow-y: auto;
+  min-width: 0;
+}
+
+.empty-builder-text {
+  color: #999;
+  font-style: italic;
+  margin-top: 40px;
+  text-align: center;
+  user-select: none;
+}
+
+.builder-question {
+  margin-bottom: 15px;
+  padding: 15px;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.12);
+  cursor: grab;
+  user-select: none;
+  transition: box-shadow 0.2s ease;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.builder-question:hover {
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.15);
+}
+
+.question-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.btn-delete-question {
+  background: transparent;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  color: #d9534f;
+  line-height: 1;
+  padding: 0 5px;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s ease;
+}
+
+.btn-delete-question:hover {
+  color: #a94442;
+}
+
+.delete-button-container {
+  margin-left: 10px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.page-tab {
+  background-color: #e7e7e7;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  color: #333;
+  transition: background-color 0.3s ease;
+  margin-right: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 100px;
+  user-select: none;
+  position: relative;
+}
+
+.page-tab:hover:not(.active) {
+  background-color: #d0d0d0;
+}
+
+.page-tab.active {
+  background-color: #007bff;
+  color: white;
+  box-shadow: 0 0 6px rgba(0, 123, 255, 0.5);
+}
+
+.page-tab-label {
+  pointer-events: none; /* So clicks go to button */
+  flex-grow: 1;
+  text-align: left;
+  user-select: none;
+}
+
+.btn-delete-page-inside {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #555;
+  padding-left: 8px;
+  padding-right: 4px;
+  cursor: pointer;
+  user-select: none;
+  flex-shrink: 0;
+  border-radius: 3px;
+  transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+.btn-delete-page-inside:hover {
+  color: #c82333;
+  background-color: #f8d7da;
+}
+
+.btn-delete-page-inside svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* TemplateBuilder.css */
+
+/* Container flex will be overridden inline but keep any existing styles here */
+
+.unique-question,
+.other-question {
+  padding: 8px 12px;
+  border: 1px solid #ccc;
+  margin-bottom: 6px;
+  border-radius: 6px;
+  background: white;
+  user-select: none;
+}
+
+.unique-question.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-delete-question {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: #b22222;
+}
+
+.empty-builder-text {
+  color: #999;
+  font-style: italic;
+}
+
+.page-tab {
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-weight: 500;
+  padding: 6px 12px;
+  border-radius: 6px;
+  transition: background-color 0.2s ease;
+}
+
+.page-tab.active {
+  font-weight: bold;
+  color: #007bff;
+  background-color: #cce5ff;
+}
+
+@media (max-width: 768px) {
+  /* On smaller screens hide preview pane */
+  .preview-pane {
+    display: none !important;
+  }
+}
+
+/* TemplateBuilder.css */
+
+/* Container & panes */
+.template-builder-container {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: #f5f5f5;
+  height: 100vh;
+  display: flex;
+  overflow: hidden;
+}
+
+.left-pane {
+  background: white;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+/* Question banks */
+.unique-question,
+.other-question {
+  padding: 8px 12px;
+  border: 1px solid #ccc;
+  margin-bottom: 6px;
+  border-radius: 6px;
+  background: white;
+  user-select: none;
+  cursor: grab;
+}
+
+.unique-question.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Page tab styles */
+.pages-container {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.page-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  padding: 6px 28px 6px 12px;
+  font-weight: 500;
+  background: #f0f0f0;
+  color: black;
+  position: relative;
+}
+
+.page-tab.active {
+  background-color: #007bff;
+  color: white;
+  font-weight: 600;
+}
+
+.page-tab input {
+  font-size: 14px;
+  padding: 4px;
+  border-radius: 4px;
+  border: 1px solid #aaa;
+  flex: 1;
+}
+
+/* Pencil and trash icon buttons in page tab */
+.page-tab button {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+}
+
+.page-tab button:hover {
+  opacity: 0.8;
+}
+
+/* Add page button */
+.add-page-btn {
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid #28a745;
+  background: #28a745;
+  color: white;
+  cursor: pointer;
+}
+
+/* Builder topbar buttons */
+.builder-topbar button {
+  font-weight: 600;
+}
+
+/* Template meta inputs */
+.template-meta input[type='text'],
+.template-meta input[type='file'] {
+  box-sizing: border-box;
+}
+
+/* Builder area */
+.builder-area {
+  background: white;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+/* Form builder drop area */
+.form-builder-drop-area {
+  min-height: 150px;
+  border: 1px dashed #aaa;
+  border-radius: 6px;
+  background: white;
+  overflow-y: auto;
+  padding: 8px;
+  flex: 1;
+}
+
+/* Preview pane */
+.preview-pane {
+  background: #f9f9f9;
+  border-left: 1px solid #ddd;
+  position: relative;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+/* iPhone mockup */
+.iphone-mockup {
+  border-radius: 40px;
+  box-shadow: 0 0 0 8px black, 0 0 20px rgba(0, 0, 0, 0.2);
+  width: 320px;
+  height: 568px;
+  background: white;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+/* Notch */
+.iphone-mockup > div:first-child {
+  width: 160px;
+  height: 30px;
+  background-color: black;
+  border-radius: 0 0 30px 30px;
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+/* Preview questions */
+.question-preview-list > div {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+  font-size: 14px;
+  background-color: #fafafa;
+}
+
+/* Preview close button */
+.preview-pane > button {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: transparent;
+  border: none;
+  font-size: 28px;
+  line-height: 1;
+  font-weight: bold;
+  color: #333;
+  cursor: pointer;
+  user-select: none;
+}
+
+/* Responsive: hide preview on narrow screens */
+@media (max-width: 768px) {
+  .preview-pane {
+    display: none !important;
+  }
+}
