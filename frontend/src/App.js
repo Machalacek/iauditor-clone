@@ -5,12 +5,14 @@ import TemplateBuilder from './pages/TemplateBuilder';
 import Templates from './pages/Templates';
 import CompletedInspections from './pages/CompletedInspections';
 import Projects from './pages/Projects';
-import ArchivedProjects from './pages/ArchivedProjects'; // <-- new!
+import ArchivedProjects from './pages/ArchivedProjects'; 
 import Team from './pages/Team';
 import Gear from './pages/Gear';
 import Profile from './pages/Profile';
 import AdminPanel from './pages/AdminPanel';
 import Login from './pages/Login';
+import GearDetail from './pages/GearDetail';
+import { useUIStore } from "./store/uiStore"; 
 
 // Zustand store for projects
 import './store/projectStore';
@@ -32,6 +34,7 @@ import {
   Settings,
   UserCircle,
   ShieldCheck,
+  Repeat,
 } from 'lucide-react';
 
 import './App.css';
@@ -43,6 +46,7 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [showMoreMobile, setShowMoreMobile] = useState(false);
   const [showPlusMenu, setShowPlusMenu] = useState(false);
+  const [selectedGear, setSelectedGear] = useState(null);
 
   const [showArchivedProjects, setShowArchivedProjects] = useState(false); // <-- NEW
 
@@ -121,8 +125,7 @@ export default function App() {
     return <div className="p-6">Loading...</div>;
   }
 
-  const { name, email, role } = userProfile;
-  const displayName = name || email;
+  const { role } = userProfile;
   const isAdmin = role === 'admin';
   const canBuilder = isAdmin || role === 'manager';
 
@@ -149,13 +152,15 @@ export default function App() {
       case 'team':
         return <Team />;
       case 'gear':
-        return <Gear />;
+        return <Gear setSelectedGear={setSelectedGear} setCurrentPage={setCurrentPage} />;
       case 'profile':
         return <Profile />;
       case 'adminPanel':
         return <AdminPanel />;
       default:
         return <Dashboard />;
+      case 'gearDetail':
+        return <GearDetail gear={selectedGear} setCurrentPage={setCurrentPage} />;
     }
   };
 
@@ -285,9 +290,6 @@ export default function App() {
 
         {/* Main Content */}
         <div className="content-container">
-          <div className="p-4 bg-white shadow text-gray-800 font-medium">
-            Welcome, {displayName}
-          </div>
           {renderContent()}
         </div>
       </div>
@@ -357,6 +359,14 @@ export default function App() {
             }}
           >
             <HardHat size={18} /> Add Gear
+          </div>
+          <div
+            onClick={() => {
+              useUIStore.getState().setShowTransferModal(true);
+              setShowPlusMenu(false);
+            }}
+          >
+            <Repeat size={18} /> Transfer Equipment
           </div>
           {canBuilder && (
             <div

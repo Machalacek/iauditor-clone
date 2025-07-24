@@ -1,3 +1,5 @@
+// src/components/GearTable.jsx
+
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useGearStore, defaultFields } from "../store/gearStore";
 import { useTeamStore } from "../store/teamStore";
@@ -12,9 +14,10 @@ import {
   Settings,
   Download,
   Upload,
-  FileText
+  FileText,
+  Repeat,
 } from "lucide-react";
-import { db, auth } from "../firebase";
+import { db, auth, storage } from "../firebase";
 import {
   collection,
   getDocs,
@@ -23,23 +26,44 @@ import {
   deleteDoc,
   doc,
   getDoc,
-  onSnapshot
+  onSnapshot,
 } from "firebase/firestore";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import Papa from "papaparse";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import TransferEquipmentModal from "./TransferEquipmentModal";
+import { useUIStore } from "../store/uiStore";
 
+// ----------- Modal close on click-outside + ESC handler -----------
+function useOnClickOutsideAndEsc(ref, handler, active = true) {
+  useEffect(() => {
+    if (!active) return;
+    function handleClick(e) {
+      if (ref.current && !ref.current.contains(e.target)) handler();
+    }
+    function handleEsc(e) {
+      if (e.key === "Escape") handler();
+    }
+    document.addEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleEsc);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleEsc);
+    };
+  }, [ref, handler, active]);
+}
 
-// --- Helper: Auto-generate field names in camelCase
+// ----------- Helper: Auto-generate field names in camelCase -----------
 function toCamelCase(str) {
   return str
-    .replace(/[^a-zA-Z0-9 ]/g, '')
-    .replace(/\s(.)/g, function(match, group1) {
+    .replace(/[^a-zA-Z0-9 ]/g, "")
+    .replace(/\s(.)/g, function (match, group1) {
       return group1.toUpperCase();
     })
-    .replace(/\s/g, '')
-    .replace(/^(.)/, function(match, group1) {
+    .replace(/\s/g, "")
+    .replace(/^(.)/, function (match, group1) {
       return group1.toLowerCase();
     });
 }
@@ -56,7 +80,7 @@ function useOnClickOutside(ref, handler) {
   }, [ref, handler]);
 }
 
-// --- CSV EXPORT (with names instead of IDs) ---
+// ----------- CSV EXPORT (with names instead of IDs) -----------
 function exportGearAsCSV(fields, data, { team, projects }) {
   const csv = Papa.unparse(
     data.map((row) => {
@@ -85,11 +109,11 @@ function exportGearAsCSV(fields, data, { team, projects }) {
   document.body.removeChild(link);
 }
 
-// --- PDF EXPORT (with names instead of IDs) ---
+// ----------- PDF EXPORT (with names instead of IDs) -----------
 function exportGearAsPDF(fields, data, { team, projects }) {
-  const doc = new jsPDF();
-  doc.text("Gear Inventory", 14, 18);
-  autoTable(doc, {
+  const docu = new jsPDF();
+  docu.text("Gear Inventory", 14, 18);
+  autoTable(docu, {
     head: [fields.map((f) => f.label)],
     body: data.map((row) =>
       fields.map((f) => {
@@ -108,12 +132,12 @@ function exportGearAsPDF(fields, data, { team, projects }) {
     startY: 24,
     styles: { fontSize: 9 },
     headStyles: { fillColor: [59, 130, 246] },
-    margin: { left: 14, right: 14 }
+    margin: { left: 14, right: 14 },
   });
-  doc.save("gear-export.pdf");
+  docu.save("gear-export.pdf");
 }
 
-// --- CSV IMPORT ---
+// ----------- CSV IMPORT -----------
 function importCSVtoGear({ fields, setShowImportError, onImport }) {
   return (e) => {
     const file = e.target.files[0];
@@ -125,7 +149,6 @@ function importCSVtoGear({ fields, setShowImportError, onImport }) {
           setShowImportError("Failed to read CSV rows.");
           return;
         }
-        // Map CSV columns to field names using label
         const csvRows = results.data;
         const mappedRows = csvRows
           .filter((row) => Object.values(row).some((val) => val && val.trim() !== ""))
@@ -145,14 +168,13 @@ function importCSVtoGear({ fields, setShowImportError, onImport }) {
       },
       error: (err) => {
         setShowImportError("Failed to parse CSV: " + err.message);
-      }
+      },
     });
-    // Reset file input so onChange fires even with same file
     e.target.value = "";
   };
 }
 
-export function GearTable() {
+export function GearTable({ setSelectedGear, setCurrentPage }) {
   const {
     gear,
     categories,
@@ -160,12 +182,11 @@ export function GearTable() {
     setCategories,
     setGear,
     fields,
-    setFields
+    setFields,
   } = useGearStore();
   const { team, setTeam } = useTeamStore();
   const { projects } = useProjectStore();
 
-  // Auth & role logic
   const [currentUserRole, setCurrentUserRole] = useState("user");
   useEffect(() => {
     const fetchRole = async () => {
@@ -179,25 +200,21 @@ export function GearTable() {
   }, []);
   const isAdminOrManager = ["admin", "manager"].includes(currentUserRole);
 
-  // Fetch Firestore gear, team, and live sync
   useEffect(() => {
-    // Gear
     const unsub = onSnapshot(collection(db, "gear"), (snap) => {
       setGear(
         snap.docs.map((d) => ({
           ...d.data(),
-          id: d.id
+          id: d.id,
         }))
       );
     });
-    // Team
     getDocs(collection(db, "users")).then((snap) =>
       setTeam(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
     );
     return () => unsub();
   }, [setGear, setTeam]);
 
-  // Search & filter
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState({ category: "All", status: "All" });
   const [filterOpen, setFilterOpen] = useState(false);
@@ -208,65 +225,83 @@ export function GearTable() {
   const [showFieldsModal, setShowFieldsModal] = useState(false);
   const [showImportError, setShowImportError] = useState("");
   const [showImportSuccess, setShowImportSuccess] = useState("");
+  const showTransferModal = useUIStore((s) => s.showTransferModal);
+  const setShowTransferModal = useUIStore((s) => s.setShowTransferModal);
 
-  // For smart menu positioning
   const [menuPosition, setMenuPosition] = useState({});
   const btnRefs = useRef({});
   const filterRef = useRef();
 
-  // Gear icon dropdown
   const [gearMenuOpen, setGearMenuOpen] = useState(false);
   const gearMenuRef = useRef();
   useOnClickOutside(gearMenuRef, () => setGearMenuOpen(false));
-
-  // For closing filter menu on outside click or filter icon click
   useOnClickOutside(filterRef, () => setFilterOpen(false));
 
-  // For closing Add/Edit modal on outside click or ESC
-  const modalRef = useRef();
-  const escCloseModal = useCallback((e) => {
-    if (e.key === "Escape") setShowModal(false);
+  // Add ESC for filter/gear menu
+  useEffect(() => {
+    const escHandler = (e) => {
+      if (e.key === "Escape") {
+        setFilterOpen(false);
+        setGearMenuOpen(false);
+      }
+    };
+    window.addEventListener("keydown", escHandler);
+    return () => window.removeEventListener("keydown", escHandler);
   }, []);
+
+  // Modal refs and click-outside/ESC handlers
+  const catModalRef = useRef();
+  const fieldsModalRef = useRef();
+  const transferModalRef = useRef();
+  useOnClickOutsideAndEsc(catModalRef, () => setShowCatModal(false), showCatModal);
+  useOnClickOutsideAndEsc(fieldsModalRef, () => setShowFieldsModal(false), showFieldsModal);
+  useOnClickOutsideAndEsc(transferModalRef, () => setShowTransferModal(false), showTransferModal);
+
+  const modalRef = useRef();
+  const escCloseModal = useCallback(
+    (e) => {
+      if (e.key === "Escape") setShowModal(false);
+    },
+    []
+  );
   useEffect(() => {
     if (showModal) {
       document.addEventListener("keydown", escCloseModal);
       return () => document.removeEventListener("keydown", escCloseModal);
     }
   }, [showModal, escCloseModal]);
-
-  // Close modal on outside click
   useOnClickOutside(modalRef, () => setShowModal(false));
 
-  // Menu placement
   const menuRef = useRef();
-  useOnClickOutside(menuRef, () => setMenuOpenFor(null));
+  useOnClickOutsideAndEsc(menuRef, () => setMenuOpenFor(null), !!menuOpenFor);
 
   const filtered = gear.filter((g) => {
     const matchesSearch =
       g.name?.toLowerCase().includes(search.toLowerCase()) ||
       (g.serialNumber || "").toLowerCase().includes(search.toLowerCase());
-    const matchesCategory =
-      filter.category === "All" || g.category === filter.category;
-    const matchesStatus =
-      filter.status === "All" || g.status === filter.status;
+    const matchesCategory = filter.category === "All" || g.category === filter.category;
+    const matchesStatus = filter.status === "All" || g.status === filter.status;
     return matchesSearch && matchesCategory && matchesStatus;
   });
 
+  // ----------- 3-dot menu position/edge logic -----------
   const handleMenuOpen = (id) => {
-    setMenuOpenFor((prev) => (prev === id ? null : id));
+    setMenuOpenFor(prev => prev === id ? null : id);
     setTimeout(() => {
       if (btnRefs.current[id]) {
         const btnRect = btnRefs.current[id].getBoundingClientRect();
-        const menuHeight = 90;
-        const spaceBelow = window.innerHeight - btnRect.bottom;
-        const spaceAbove = btnRect.top;
+        const menuWidth = 170; // px
+        // Center the menu on the button, or open to left if would overflow right
+        let left = btnRect.left + btnRect.width / 2 - menuWidth / 2;
+        if (left + menuWidth > window.innerWidth - 16) {
+          left = window.innerWidth - menuWidth - 16; // 16px padding from edge
+        }
+        if (left < 16) {
+          left = 16; // Don't bleed out on left
+        }
         setMenuPosition({
-          top:
-            spaceBelow < menuHeight && spaceAbove > menuHeight
-              ? btnRect.top - menuHeight
-              : btnRect.bottom,
-          left: btnRect.left,
-          dropUp: spaceBelow < menuHeight && spaceAbove > menuHeight
+          top: btnRect.bottom + 8,
+          left,
         });
       }
     }, 0);
@@ -285,7 +320,6 @@ export function GearTable() {
     setMenuOpenFor(null);
   };
 
-  // --- Custom Fields CRUD (DnD, edit, remove, scroll) ---
   function handleAddField() {
     setFields([...fields, { name: "", label: "", type: "text", required: false }]);
   }
@@ -310,29 +344,35 @@ export function GearTable() {
     setFields(reordered);
   }
 
-  // Category modal handlers
   const [catInput, setCatInput] = useState("");
   const [editCatIdx, setEditCatIdx] = useState(null);
   const [editCatValue, setEditCatValue] = useState("");
 
-  // --- UI ---
-  return (
-    <div className="bg-white rounded-2xl shadow p-6">
-      {/* Row 1: Gear title + buttons (right) */}
-      <div className="flex flex-row items-center justify-between gap-3 mb-2">
+  // Responsive check
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 900);
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 900);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  // ----------- HEADER AND BUTTONS -----------
+  const renderHeader = () => (
+    <div className="flex flex-col gap-2 mb-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <h2 className="text-2xl font-bold text-gray-800">Gear</h2>
-        <div className="flex gap-2 items-center">
+        <div className="flex gap-2 flex-wrap">
           {isAdminOrManager && (
             <>
               <button
-                onClick={() => setShowCatModal(true)}
+                onClick={e => { e.stopPropagation(); setShowCatModal(true); }}
                 className="border border-blue-600 text-blue-600 hover:bg-blue-50 rounded-lg px-3 py-2 text-sm flex items-center gap-1"
               >
                 <Plus size={16} className="mr-1" />
                 Manage Categories
               </button>
               <button
-                onClick={() => setShowFieldsModal(true)}
+                onClick={e => { e.stopPropagation(); setShowFieldsModal(true); }}
                 className="border border-blue-600 text-blue-600 hover:bg-blue-50 rounded-lg px-3 py-2 text-sm flex items-center gap-1"
               >
                 <Plus size={16} className="mr-1" />
@@ -340,11 +380,15 @@ export function GearTable() {
               </button>
             </>
           )}
+          {/* --- Transfer Equipment Button --- */}
           <button
-            onClick={() => {
-              setModalGear(null);
-              setShowModal(true);
-            }}
+            onClick={e => { e.stopPropagation(); setShowTransferModal(true); }}
+            className="bg-green-600 text-white hover:bg-green-700 rounded-lg px-4 py-2 text-sm font-semibold transition flex items-center"
+          >
+            <Repeat size={16} className="mr-1" /> Transfer Equipment
+          </button>
+          <button
+            onClick={e => { e.stopPropagation(); setModalGear(null); setShowModal(true); }}
             className="bg-blue-600 text-white hover:bg-blue-700 rounded-lg px-4 py-2 text-sm font-semibold transition"
           >
             + Add Equipment
@@ -353,7 +397,7 @@ export function GearTable() {
           <div className="relative">
             <button
               className="p-2 rounded-full hover:bg-gray-100"
-              onClick={() => setGearMenuOpen(v => !v)}
+              onClick={e => { e.stopPropagation(); setGearMenuOpen(v => !v); }}
               aria-label="Gear Options"
             >
               <Settings size={22} />
@@ -365,7 +409,8 @@ export function GearTable() {
               >
                 <button
                   className="flex items-center w-full px-4 py-2 hover:bg-gray-100 text-sm"
-                  onClick={() => {
+                  onClick={e => {
+                    e.stopPropagation();
                     setGearMenuOpen(false);
                     exportGearAsCSV(fields, filtered, { team, projects });
                   }}
@@ -374,7 +419,8 @@ export function GearTable() {
                 </button>
                 <button
                   className="flex items-center w-full px-4 py-2 hover:bg-gray-100 text-sm"
-                  onClick={() => {
+                  onClick={e => {
+                    e.stopPropagation();
                     setGearMenuOpen(false);
                     exportGearAsPDF(fields, filtered, { team, projects });
                   }}
@@ -412,9 +458,8 @@ export function GearTable() {
           </div>
         </div>
       </div>
-
-      {/* Row 2: Search bar */}
-      <div className="flex flex-row items-center mb-2 gap-2">
+      {/* Search and filter */}
+      <div className="flex flex-row items-center gap-2">
         <input
           type="text"
           placeholder="Search gear…"
@@ -422,13 +467,12 @@ export function GearTable() {
           onChange={(e) => setSearch(e.target.value)}
           className="border rounded px-3 py-2 flex-grow"
         />
-        {/* Row 3: Filter icon (right under search bar) */}
         <div className="relative">
           <button
             className={`p-2 rounded hover:bg-gray-100 ${filterOpen ? "bg-gray-100" : ""}`}
             ref={filterRef}
             aria-label="Filter"
-            onClick={() => setFilterOpen((v) => !v)}
+            onClick={e => { e.stopPropagation(); setFilterOpen((v) => !v); }}
           >
             <Filter size={20} />
           </button>
@@ -461,7 +505,8 @@ export function GearTable() {
               </div>
               <button
                 className="mt-4 text-xs text-blue-700 underline"
-                onClick={() => {
+                onClick={e => {
+                  e.stopPropagation();
                   setSearch("");
                   setFilter({ category: "All", status: "All" });
                   setFilterOpen(false);
@@ -473,106 +518,275 @@ export function GearTable() {
           )}
         </div>
       </div>
+    </div>
+  );
 
-      {/* Table */}
-      <div className="overflow-visible">
-        <table className="min-w-full overflow-visible">
-          <thead>
-            <tr className="bg-blue-50 text-blue-800">
-              {fields.map((f) => (
-                <th
-                  key={f.name}
-                  className="py-2 px-2 text-left font-bold"
-                >
-                  {f.label}
-                </th>
-              ))}
-              <th className="py-2 px-2"></th>
-            </tr>
-          </thead>
-          <tbody className="overflow-visible">
-            {filtered.map((g, idx) => (
-              <tr key={g.id} className="border-t hover:bg-gray-50 overflow-visible">
-                {fields.map((f) => (
-                  <td key={f.name} className="py-2 px-2">
-                    {f.name === "category" && g[f.name]}
-                    {f.name === "status" && g[f.name]}
-                    {f.name === "assignedTo" && (
-                      g.assignedTo
-                        ? team.find((u) => u.id === g.assignedTo)?.name || <span className="text-gray-400">Not found</span>
-                        : <span className="text-gray-400">Unassigned</span>
-                    )}
-                    {f.name === "assignedProject" && (
-                      g.assignedProject
-                        ? projects.find((p) => p.id === g.assignedProject)?.name || <span className="text-gray-400">Not found</span>
-                        : <span className="text-gray-400">Unassigned</span>
-                    )}
-                    {["name", "serialNumber", "notes"].includes(f.name) && g[f.name]}
-                    {f.name === "dateAdded" &&
-                      (g.dateAdded ? new Date(g.dateAdded).toLocaleDateString() : "")
-                    }
-                    {["text", "select", "textarea", "date", "number", "checkbox"].includes(f.type) && !["category", "status", "assignedTo", "assignedProject", "name", "serialNumber", "notes", "dateAdded"].includes(f.name) && String(g[f.name] ?? "")}
-                  </td>
-                ))}
-                <td className="py-2 px-2 flex gap-2 relative overflow-visible">
-                  <span>
-                    <button
-                      ref={el => btnRefs.current[g.id] = el}
-                      onClick={() => handleMenuOpen(g.id)}
-                      className="p-1 hover:bg-gray-100 rounded"
-                    >
-                      <MoreVertical size={18} />
-                    </button>
-                    {menuOpenFor === g.id && (
-                      <MenuDropdown
-                        ref={menuRef}
-                        position={menuPosition}
-                        onEdit={() => {
-                          setModalGear(g);
-                          setShowModal(true);
-                          setMenuOpenFor(null);
-                        }}
-                        onDelete={() => handleDeleteGear(g.id)}
-                      />
-                    )}
-                  </span>
-                </td>
-              </tr>
+  // ----------- TABLES & CARDS -----------
+  const renderTable = () => (
+    <div className="overflow-visible">
+      <table className="min-w-full overflow-visible">
+        <thead>
+          <tr className="bg-blue-50 text-blue-800">
+            <th className="py-2 px-2"></th>
+            {fields.map((f) => (
+              <th key={f.name} className="py-2 px-2 text-left font-bold">
+                {f.label}
+              </th>
             ))}
-            {filtered.length === 0 && (
-              <tr>
-                <td colSpan={fields.length + 1} className="py-4 text-center text-gray-400">
-                  No gear found
+            <th className="py-2 px-2"></th>
+          </tr>
+        </thead>
+        <tbody className="overflow-visible">
+          {filtered.map((g) => (
+            <tr
+              key={g.id}
+              className="border-t hover:bg-blue-50 overflow-visible cursor-pointer"
+              onClick={(e) => {
+                if (
+                  e.target.closest(
+                    "button,svg,path,label,input,select"
+                  )
+                )
+                  return;
+                setSelectedGear(g);
+                setCurrentPage('gearDetail');
+              }}
+            >
+              <td className="py-2 px-2">
+                <img
+                  src={g.imageUrl || "/gear-placeholder.png"}
+                  alt={g.name}
+                  className="w-10 h-10 object-cover rounded-full bg-gray-100 border"
+                />
+              </td>
+              {fields.map((f) => (
+                <td key={f.name} className="py-2 px-2">
+                  {f.name === "category" && g[f.name]}
+                  {f.name === "status" && g[f.name]}
+                  {f.name === "assignedTo" &&
+                    (g.assignedTo
+                      ? team.find((u) => u.id === g.assignedTo)?.name || (
+                          <span className="text-gray-400">Not found</span>
+                        )
+                      : <span className="text-gray-400">Unassigned</span>)}
+                  {f.name === "assignedProject" &&
+                    (g.assignedProject
+                      ? projects.find((p) => p.id === g.assignedProject)?.name || (
+                          <span className="text-gray-400">Not found</span>
+                        )
+                      : <span className="text-gray-400">Unassigned</span>)}
+                  {["name", "serialNumber", "notes"].includes(f.name) &&
+                    g[f.name]}
+                  {f.name === "dateAdded" &&
+                    (g.dateAdded
+                      ? new Date(g.dateAdded).toLocaleDateString()
+                      : "")}
+                  {["text", "select", "textarea", "date", "number", "checkbox"].includes(
+                    f.type
+                  ) &&
+                    ![
+                      "category",
+                      "status",
+                      "assignedTo",
+                      "assignedProject",
+                      "name",
+                      "serialNumber",
+                      "notes",
+                      "dateAdded",
+                    ].includes(f.name) &&
+                    String(g[f.name] ?? "")}
                 </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+              ))}
+              <td className="py-2 px-2 flex gap-2 relative overflow-visible">
+                <span>
+                  <button
+                    ref={(el) => (btnRefs.current[g.id] = el)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleMenuOpen(g.id);
+                    }}
+                    className="p-1 hover:bg-gray-100 rounded"
+                  >
+                    <MoreVertical size={18} />
+                  </button>
+                  {menuOpenFor === g.id && (
+                    <MenuDropdown
+                      ref={menuRef}
+                      position={menuPosition}
+                      onEdit={(e) => {
+                        e.stopPropagation();
+                        setModalGear(g);
+                        setShowModal(true);
+                        setMenuOpenFor(null);
+                      }}
+                      onDelete={(e) => {
+                        e.stopPropagation();
+                        handleDeleteGear(g.id);
+                      }}
+                    />
+                  )}
+                </span>
+              </td>
+            </tr>
+          ))}
+          {filtered.length === 0 && (
+            <tr>
+              <td colSpan={fields.length + 2} className="py-4 text-center text-gray-400">
+                No gear found
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+
+  // ----------- MOBILE CARD VIEW -----------
+  const renderMobileCards = () => (
+    <div className="flex flex-col gap-3">
+      {filtered.map((g) => (
+        <div
+          key={g.id}
+          tabIndex={-1}
+          className="flex items-start bg-white rounded-xl shadow p-3 relative cursor-pointer"
+          onClick={(e) => {
+            if (
+              e.target.closest(
+                "button,svg,path,label,input,select"
+              )
+            )
+              return;
+            setSelectedGear(g);
+            setCurrentPage('gearDetail');
+          }}
+        >
+          <img
+            src={g.imageUrl || "/gear-placeholder.png"}
+            alt={g.name}
+            className="w-12 h-12 object-cover rounded-full bg-gray-100 border mr-3 mt-1"
+          />
+          <div className="flex-1 min-w-0">
+            <div className="font-semibold text-lg truncate">{g.name}</div>
+            <div className="text-slate-400 text-sm truncate">
+              {g.serialNumber || <span>&mdash;</span>}
+            </div>
+            <div className="text-slate-600 text-base truncate">{g.category}</div>
+            <div className="text-slate-500 text-xs mt-1 truncate">
+              Assigned to:{" "}
+              {g.assignedTo
+                ? team.find((u) => u.id === g.assignedTo)?.name || (
+                    <span className="text-gray-400">Not found</span>
+                  )
+                : <span className="text-gray-400">—</span>}
+              <br />
+              Project:{" "}
+              {g.assignedProject
+                ? projects.find((p) => p.id === g.assignedProject)?.name || (
+                    <span className="text-gray-400">Not found</span>
+                  )
+                : <span className="text-gray-400">—</span>}
+            </div>
+          </div>
+          {/* Three-dot menu */}
+          <button
+            ref={(el) => (btnRefs.current[g.id] = el)}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleMenuOpen(g.id);
+            }}
+            className="p-1 hover:bg-gray-100 rounded absolute right-2 top-2"
+          >
+            <MoreVertical size={20} />
+          </button>
+          {menuOpenFor === g.id && (
+            <MenuDropdown
+              ref={menuRef}
+              position={menuPosition}
+              onEdit={(e) => {
+                e.stopPropagation();
+                setModalGear(g);
+                setShowModal(true);
+                setMenuOpenFor(null);
+              }}
+              onDelete={(e) => {
+                e.stopPropagation();
+                handleDeleteGear(g.id);
+              }}
+            />
+          )}
+        </div>
+      ))}
+      {filtered.length === 0 && (
+        <div className="text-center text-gray-400 py-8">No gear found</div>
+      )}
+    </div>
+  );
+
+  // ----------- FINAL RETURN -----------
+  return (
+    <>
+      <div className="bg-white rounded-2xl shadow p-6">
+        {renderHeader()}
+        {isMobile ? renderMobileCards() : renderTable()}
       </div>
 
-      {/* Add/Edit Modal */}
+      {/* --- Transfer Equipment Modal --- */}
+      {showTransferModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 z-50 flex items-center justify-center">
+         <div ref={transferModalRef} className="relative z-50">
+            <TransferEquipmentModal
+              gearList={gear}
+              team={team}
+              projects={projects}
+              onClose={() => setShowTransferModal(false)}
+              onTransfer={async (itemId, newAssignedTo, newProject, fromSig, toSig) => {
+                const gearDocRef = doc(db, "gear", itemId);
+                const gearDoc = await getDoc(gearDocRef);
+                const prev = gearDoc.data();
+                await updateDoc(gearDocRef, {
+                  pendingTransfer: {
+                    to: { userId: newAssignedTo, projectId: newProject },
+                    from: {
+                      userId: prev.assignedTo || "",
+                      projectId: prev.assignedProject || "",
+                    },
+                    date: new Date().toISOString(),
+                    fromSig,
+                    toSig,
+                  }
+                });
+                setShowTransferModal(false);
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* --- Add/Edit, Category, Fields Modals --- */}
       {showModal && (
         <GearModal
           modalRef={modalRef}
           gear={modalGear}
           onClose={() => setShowModal(false)}
           onSave={handleSaveGear}
-          team={team.filter(u => u.active)}
-          projects={projects.filter(p => p.active)}
+          team={team.filter((u) => u.active)}
+          projects={projects.filter((p) => p.active)}
           categories={categories}
           statuses={statuses}
           fields={fields}
           isAdminOrManager={isAdminOrManager}
         />
       )}
-
-      {/* --- Category Manager Modal --- */}
+      {/* --- Category Modal --- */}
       {showCatModal && (
         <div className="fixed inset-0 bg-black bg-opacity-30 z-50 flex items-center justify-center">
-          <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-sm">
+          <div ref={catModalRef} className="bg-white rounded-xl shadow-lg p-6 w-full max-w-sm">
             <div className="flex justify-between items-center mb-3">
               <h3 className="font-semibold text-xl">Manage Categories</h3>
-              <button onClick={() => setShowCatModal(false)} className="p-2 hover:bg-gray-100 rounded-full">
+              <button
+                onClick={() => setShowCatModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-full"
+              >
                 <X size={20} />
               </button>
             </div>
@@ -583,7 +797,7 @@ export function GearTable() {
                     <>
                       <input
                         value={editCatValue}
-                        onChange={e => setEditCatValue(e.target.value)}
+                        onChange={(e) => setEditCatValue(e.target.value)}
                         className="border rounded px-2 py-1 flex-1"
                       />
                       <button
@@ -631,7 +845,7 @@ export function GearTable() {
               ))}
             </ul>
             <form
-              onSubmit={e => {
+              onSubmit={(e) => {
                 e.preventDefault();
                 if (!catInput.trim()) return;
                 setCategories([...categories, catInput.trim()]);
@@ -641,7 +855,7 @@ export function GearTable() {
             >
               <input
                 value={catInput}
-                onChange={e => setCatInput(e.target.value)}
+                onChange={(e) => setCatInput(e.target.value)}
                 placeholder="Add category"
                 className="border rounded px-2 py-1 flex-1"
               />
@@ -655,14 +869,16 @@ export function GearTable() {
           </div>
         </div>
       )}
-
-      {/* --- Fields Manager Modal (DnD, scrollable, editable, auto-naming) --- */}
+      {/* --- Fields Modal --- */}
       {showFieldsModal && (
         <div className="fixed inset-0 bg-black bg-opacity-30 z-50 flex items-center justify-center">
-          <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-2xl max-h-[90vh] flex flex-col">
+          <div ref={fieldsModalRef} className="bg-white rounded-xl shadow-lg p-6 w-full max-w-2xl max-h-[90vh] flex flex-col">
             <div className="flex justify-between items-center mb-3">
               <h3 className="font-semibold text-xl">Manage Fields</h3>
-              <button onClick={() => setShowFieldsModal(false)} className="p-2 hover:bg-gray-100 rounded-full">
+              <button
+                onClick={() => setShowFieldsModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-full"
+              >
                 <X size={20} />
               </button>
             </div>
@@ -679,7 +895,9 @@ export function GearTable() {
                         <Draggable key={i} draggableId={String(i)} index={i}>
                           {(provided, snapshot) => (
                             <li
-                              className={`flex items-center gap-2 bg-gray-50 p-1 rounded w-full flex-wrap ${snapshot.isDragging ? "shadow-lg" : ""}`}
+                              className={`flex items-center gap-2 bg-gray-50 p-1 rounded w-full flex-wrap ${
+                                snapshot.isDragging ? "shadow-lg" : ""
+                              }`}
                               ref={provided.innerRef}
                               {...provided.draggableProps}
                             >
@@ -697,21 +915,20 @@ export function GearTable() {
                                   <circle cx="14" cy="14" r="1.5" fill="#888" />
                                 </svg>
                               </span>
-                              {/* Field label */}
                               <input
                                 value={f.label}
-                                onChange={e => {
+                                onChange={(e) => {
                                   handleEditField(i, "label", e.target.value);
-                                  // Auto-generate name when label changes
                                   handleEditField(i, "name", toCamelCase(e.target.value));
                                 }}
                                 placeholder="Label"
                                 className="border rounded px-2 py-1 w-36"
                               />
-                              {/* Field type */}
                               <select
                                 value={f.type}
-                                onChange={e => handleEditField(i, "type", e.target.value)}
+                                onChange={(e) =>
+                                  handleEditField(i, "type", e.target.value)
+                                }
                                 className="border rounded px-2 py-1 w-36"
                               >
                                 <option value="text">Text</option>
@@ -721,12 +938,13 @@ export function GearTable() {
                                 <option value="number">Number</option>
                                 <option value="checkbox">Checkmark</option>
                               </select>
-                              {/* Required */}
                               <label className="flex items-center text-xs ml-1">
                                 <input
                                   type="checkbox"
                                   checked={f.required}
-                                  onChange={e => handleEditField(i, "required", e.target.checked)}
+                                  onChange={(e) =>
+                                    handleEditField(i, "required", e.target.checked)
+                                  }
                                   className="mr-1"
                                 />
                                 Required
@@ -766,22 +984,25 @@ export function GearTable() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
-// --- Submenu Dropdown (Edit/Delete)
-const MenuDropdown = React.forwardRef(function MenuDropdown({ position, onEdit, onDelete }, ref) {
+// --- MenuDropdown: all buttons use e.stopPropagation() ---
+const MenuDropdown = React.forwardRef(function MenuDropdown(
+  { position, onEdit, onDelete },
+  ref
+) {
   const style = {
     position: "fixed",
     left: position.left,
     top: position.top,
-    minWidth: 120,
+    minWidth: 170,
     zIndex: 9999,
     background: "white",
-    borderRadius: "0.5rem",
+    borderRadius: "0.75rem",
     border: "1px solid #e5e7eb",
-    boxShadow: "0 4px 24px rgba(0,0,0,0.10)",
+    boxShadow: "0 8px 24px rgba(0,0,0,0.16)",
   };
   return (
     <div ref={ref} style={style} className="shadow z-[9999]">
@@ -803,42 +1024,110 @@ const MenuDropdown = React.forwardRef(function MenuDropdown({ position, onEdit, 
   );
 });
 
-// --- Gear Modal Component (with scroll support and outside click/ESC close)
-function GearModal({ modalRef, gear, onClose, onSave, team, projects, categories, statuses, fields }) {
+// --- GearModal (Add/Edit) ---
+function GearModal({
+  modalRef,
+  gear,
+  onClose,
+  onSave,
+  team,
+  projects,
+  categories,
+  statuses,
+  fields,
+}) {
   const [values, setValues] = useState(() => {
     const obj = {};
-    fields.forEach(f => {
+    fields.forEach((f) => {
       obj[f.name] = gear?.[f.name] ?? "";
     });
     return obj;
   });
+  const [imageUploading, setImageUploading] = useState(false);
+  const [imageError, setImageError] = useState("");
+  // For click-outside and ESC close
+  const localRef = useRef();
+  useOnClickOutsideAndEsc(localRef, onClose, true);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     setValues((v) => ({
       ...v,
-      [name]: type === "checkbox" ? checked : value
+      [name]: type === "checkbox" ? checked : value,
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleImageChange = async (e) => {
+    setImageError("");
+    const file = e.target.files[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setImageError("File must be an image");
+      return;
+    }
+    setImageUploading(true);
+    try {
+      const fileName = gear?.id
+        ? `gear/${gear.id}/${Date.now()}_${file.name}`
+        : `gear/temp/${Date.now()}_${file.name}`;
+      const storageRef = ref(storage, fileName);
+      await uploadBytes(storageRef, file);
+      const url = await getDownloadURL(storageRef);
+      setValues((v) => ({ ...v, imageUrl: url }));
+    } catch (err) {
+      setImageError("Upload failed");
+    }
+    setImageUploading(false);
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const final = {
       ...values,
-      dateAdded: gear?.dateAdded || new Date().toISOString()
+      dateAdded: gear?.dateAdded || new Date().toISOString(),
     };
     onSave(final, gear?.id);
   };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-30 z-40 flex items-center justify-center">
-      <div ref={modalRef} className="bg-white rounded-xl shadow-lg p-6 w-full max-w-md">
-        <h3 className="font-semibold text-xl mb-4">{gear ? "Edit Gear" : "Add Equipment"}</h3>
+      <div
+        ref={localRef}
+        className="bg-white rounded-xl shadow-lg p-6 w-full max-w-md"
+      >
+        <h3 className="font-semibold text-xl mb-4">
+          {gear ? "Edit Gear" : "Add Equipment"}
+        </h3>
         <form
           onSubmit={handleSubmit}
           className="space-y-4 overflow-y-auto"
           style={{ maxHeight: "65vh" }}
         >
+          {/* IMAGE UPLOAD */}
+          <div className="mb-2 flex items-center gap-4">
+            <img
+              src={values.imageUrl || "/gear-placeholder.png"}
+              alt="Gear preview"
+              className="w-16 h-16 object-cover rounded-full bg-gray-100 border"
+            />
+            <div className="flex flex-col">
+              <label className="text-sm font-medium">Image</label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageChange}
+                disabled={imageUploading}
+                className="mt-1"
+              />
+              {imageUploading && (
+                <div className="text-xs text-blue-500">Uploading...</div>
+              )}
+              {imageError && (
+                <div className="text-xs text-red-600">{imageError}</div>
+              )}
+            </div>
+          </div>
+          {/* FIELDS */}
           {fields.map((f) => (
             <div key={f.name}>
               <label className="block mb-1 font-medium">
@@ -932,6 +1221,7 @@ function GearModal({ modalRef, gear, onClose, onSave, team, projects, categories
             <button
               type="submit"
               className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              disabled={imageUploading}
             >
               {gear ? "Save" : "Add"}
             </button>
@@ -941,3 +1231,5 @@ function GearModal({ modalRef, gear, onClose, onSave, team, projects, categories
     </div>
   );
 }
+
+export default GearTable;

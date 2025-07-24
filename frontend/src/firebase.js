@@ -1,7 +1,9 @@
 // src/firebase.js
-import { initializeApp } from 'firebase/app';
-import { getAuth, signInWithPopup, OAuthProvider } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore'; // ✅ NEW
+import { initializeApp } from "firebase/app";
+import { getAuth } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
+import { OAuthProvider } from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCMLm40mhxOuLMqSvuDcZhmkBDOgnUdwU8",
@@ -16,3 +18,4 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app); // ✅ NEW
 export const msProvider = new OAuthProvider('microsoft.com');
+export const storage = getStorage(app);
