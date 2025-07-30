@@ -3,41 +3,34 @@ import React, { useState, useEffect, useRef } from 'react';
 import Dashboard from './pages/Dashboard';
 import TemplateBuilder from './pages/TemplateBuilder';
 import Templates from './pages/Templates';
-import CompletedInspections from './pages/CompletedInspections';
+import Inspections from './pages/Inspections'; // <-- Updated import
 import Projects from './pages/Projects';
-import ArchivedProjects from './pages/ArchivedProjects'; 
+import ArchivedProjects from './pages/ArchivedProjects';
 import Team from './pages/Team';
 import Gear from './pages/Gear';
 import Profile from './pages/Profile';
 import AdminPanel from './pages/AdminPanel';
 import Login from './pages/Login';
 import GearDetail from './pages/GearDetail';
-import { useUIStore } from "./store/uiStore"; 
 import NotificationBell from "./components/NotificationBell";
+import GearModal from "./components/GearModal";
+import TransferEquipmentModal from "./components/TransferEquipmentModal";
+import AddProjectModal from "./components/AddProjectModal";
+import InviteModal from "./components/InviteModal";
+import OrganizationSettings from './pages/OrganizationSettings';
+import Sidebar from './Sidebar';
+import Register from "./pages/Register";
+import NewInspection from "./pages/NewInspection";
 
-// Zustand store for projects
+
 import './store/projectStore';
+
+import { Routes, Route, useLocation } from "react-router-dom";
 
 import { auth, db } from './firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { useProjectStore } from "./store/projectStore";
-
-import {
-  Home,
-  FileText,
-  ClipboardList,
-  MoreHorizontal,
-  PlusCircle,
-  Users,
-  Folder,
-  File,
-  HardHat,
-  Settings,
-  UserCircle,
-  ShieldCheck,
-  Repeat,
-} from 'lucide-react';
 
 import './App.css';
 
@@ -49,19 +42,40 @@ export default function App() {
   const [showMoreMobile, setShowMoreMobile] = useState(false);
   const [showPlusMenu, setShowPlusMenu] = useState(false);
   const [selectedGear, setSelectedGear] = useState(null);
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  const profileUid = params.get('uid');
 
-  const [showArchivedProjects, setShowArchivedProjects] = useState(false); // <-- NEW
+  // 🟢 All modal states
+  const [showAddProjectModal, setShowAddProjectModal] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [showAddGearModal, setShowAddGearModal] = useState(false);
+  const [showTransferEquipmentModal, setShowTransferEquipmentModal] = useState(false);
+
+  const [showArchivedProjects, setShowArchivedProjects] = useState(false);
 
   const plusBtnRef = useRef(null);
   const plusMenuRef = useRef(null);
   const moreBtnRef = useRef(null);
   const moreDrawerRef = useRef(null);
   const { projects, fetchProjects } = useProjectStore();
+
+  // Placeholder gear/team/projects arrays for modals (add your data fetching here!)
+  const gearList = [];
+  const team = [];
+  const projectList = [];
+
   useEffect(() => {
     if (!projects || projects.length === 0) {
       fetchProjects && fetchProjects();
     }
   }, [projects, fetchProjects]);
+
+  // TODO: Replace with your own gear/team/projects fetching logic if needed
+  useEffect(() => {
+    // Fetch your gear, team, and projects here and set with setGearList, setTeam, setProjectList
+    // For now, they are empty arrays
+  }, []);
 
   // Listen for auth changes & load profile
   useEffect(() => {
@@ -93,6 +107,36 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
+  // Sync currentPage to URL on initial load
+  useEffect(() => {
+    // Keeps currentPage and the URL in sync for all main app pages
+    if (location.pathname.startsWith('/profile')) {
+      setCurrentPage('profile');
+    } else if (location.pathname.startsWith('/team')) {
+      setCurrentPage('team');
+    } else if (location.pathname.startsWith('/dashboard')) {
+      setCurrentPage('dashboard');
+    } else if (location.pathname.startsWith('/templates')) {
+      setCurrentPage('templates');
+    } else if (location.pathname.startsWith('/templateBuilder')) {
+      setCurrentPage('templateBuilder');
+    } else if (location.pathname.startsWith('/inspections')) { // <-- Updated
+      setCurrentPage('inspections');
+    } else if (location.pathname.startsWith('/projects')) {
+      setCurrentPage('projects');
+    } else if (location.pathname.startsWith('/gearDetail')) {
+      setCurrentPage('gearDetail');
+    } else if (location.pathname.startsWith('/gear')) {
+      setCurrentPage('gear');
+    } else if (location.pathname.startsWith('/organizationSettings')) {
+      setCurrentPage('organizationSettings');
+    } else if (location.pathname.startsWith('/adminPanel')) {
+      setCurrentPage('adminPanel');
+    } else {
+      setCurrentPage('dashboard'); // Default fallback
+    }
+  }, [location.pathname, location.search]);
+
   // Click-outside to close mobile menus
   useEffect(() => {
     const handler = e => {
@@ -119,21 +163,8 @@ export default function App() {
     return () => document.removeEventListener('click', handler);
   }, [showPlusMenu, showMoreMobile]);
 
-  if (!user) {
-    return (
-      <Login
-        onLogin={page => {
-          setUser(auth.currentUser);
-          setCurrentPage(page || 'dashboard');
-        }}
-      />
-    );
-  }
-  if (loadingProfile || !userProfile) {
-    return <div className="p-6">Loading...</div>;
-  }
-
-  const { role } = userProfile;
+  // Main content rendering (move this above the return!)
+  const { role } = userProfile || {};
   const isAdmin = role === 'admin';
   const canBuilder = isAdmin || role === 'manager';
 
@@ -146,338 +177,117 @@ export default function App() {
     }
     switch (currentPage) {
       case 'dashboard':
-        return <Dashboard />;
+        return (
+          <Dashboard
+            setCurrentPage={setCurrentPage}
+            openAddProject={() => setShowAddProjectModal(true)}
+            openInviteMember={() => setShowInviteModal(true)}
+            openAddGear={() => setShowAddGearModal(true)}
+            openTransferEquipment={() => setShowTransferEquipmentModal(true)}
+          />
+        );
       case 'templates':
         return <Templates />;
       case 'templateBuilder':
         return <TemplateBuilder />;
-      case 'completedInspections':
-        return <CompletedInspections />;
+      case 'inspections': // <-- Updated
+        return <Inspections />;
       case 'projects':
         return showArchivedProjects
           ? <ArchivedProjects onBack={() => setShowArchivedProjects(false)} />
           : <Projects onShowArchived={() => setShowArchivedProjects(true)} />;
       case 'team':
-        return <Team />;
+        return <Team setCurrentPage={setCurrentPage} />;
       case 'gear':
         return <Gear setSelectedGear={setSelectedGear} setCurrentPage={setCurrentPage} />;
       case 'profile':
-        return <Profile />;
+        return <Profile setCurrentPage={setCurrentPage} uid={profileUid} />;
       case 'adminPanel':
         return <AdminPanel />;
       default:
         return <Dashboard />;
       case 'gearDetail':
         return <GearDetail gear={selectedGear} setCurrentPage={setCurrentPage} />;
+      case 'organizationSettings':
+        return <OrganizationSettings />;
     }
   };
 
   return (
-    <div className="app-container">
-      <div className="main-layout">
-        {/* Desktop Sidebar */}
-        <div className="sidebar desktop-only">
-          {/* Logo at top */}
-          <div className="desktop-logo-holder">
-            <img src="/assets/logo.png" alt="Logo" />
-          </div>
-          <div className="menu-top">
-            <div
-              className={`menu-item ${
-                currentPage === 'dashboard' ? 'active' : ''
-              }`}
-              onClick={() => {
-                setCurrentPage('dashboard');
-                setShowArchivedProjects(false);
+    <Routes>
+      {/* Invite registration route */}
+      <Route path="/register" element={<Register />} />
+      {/* NEW INSPECTION ROUTE - paste this below */}
+      <Route path="/inspections/new/:templateId" element={<NewInspection />} />
+      {/* All other app routes, using your existing logic */}
+      <Route
+        path="*"
+        element={
+          !user ? (
+            <Login
+              onLogin={page => {
+                setUser(auth.currentUser);
+                setCurrentPage(page || 'dashboard');
               }}
-            >
-              <Home size={18} /> Dashboard
-            </div>
-            <div
-              className={`menu-item ${
-                currentPage === 'templates' ? 'active' : ''
-              }`}
-              onClick={() => {
-                setCurrentPage('templates');
-                setShowArchivedProjects(false);
-              }}
-            >
-              <FileText size={18} /> Templates
-            </div>
-            {canBuilder && (
-              <div
-                className={`menu-item ${
-                  currentPage === 'templateBuilder' ? 'active' : ''
-                }`}
-                onClick={() => {
-                  setCurrentPage('templateBuilder');
-                  setShowArchivedProjects(false);
-                }}
-              >
-                <File size={18} /> Template Builder
+            />
+          ) : loadingProfile || !userProfile ? (
+            <div className="p-6">Loading...</div>
+          ) : (
+            <div className="app-container">
+              <div className="main-layout">
+                {/* Sidebar handles ALL navigation */}
+                <Sidebar
+                  userProfile={userProfile}
+                  setCurrentPage={setCurrentPage}
+                  currentPage={currentPage}
+                  signOut={() => signOut(auth)}
+                />
+
+                {/* Main Content */}
+                <div className="content-container">
+                  <div style={{display: "flex", justifyContent: "flex-end", marginBottom: 12}}>
+                    <NotificationBell />
+                  </div>
+                  {renderContent()}
+                </div>
               </div>
-            )}
-            <div
-              className={`menu-item ${
-                currentPage === 'completedInspections' ? 'active' : ''
-              }`}
-              onClick={() => {
-                setCurrentPage('completedInspections');
-                setShowArchivedProjects(false);
-              }}
-            >
-              <ClipboardList size={18} /> Completed Inspections
-            </div>
-            <div
-              className={`menu-item ${
-                currentPage === 'projects' ? 'active' : ''
-              }`}
-              onClick={() => {
-                setCurrentPage('projects');
-                setShowArchivedProjects(false);
-              }}
-            >
-              <Folder size={18} /> Projects
-            </div>
-            <div
-              className={`menu-item ${
-                currentPage === 'team' ? 'active' : ''
-              }`}
-              onClick={() => {
-                setCurrentPage('team');
-                setShowArchivedProjects(false);
-              }}
-            >
-              <Users size={18} /> Team
-            </div>
-            <div
-              className={`menu-item ${
-                currentPage === 'gear' ? 'active' : ''
-              }`}
-              onClick={() => {
-                setCurrentPage('gear');
-                setShowArchivedProjects(false);
-              }}
-            >
-              <HardHat size={18} /> Gear
-            </div>
-            {isAdmin && (
-              <div
-                className={`menu-item ${
-                  currentPage === 'adminPanel' ? 'active' : ''
-                }`}
-                onClick={() => {
-                  setCurrentPage('adminPanel');
-                  setShowArchivedProjects(false);
-                }}
-              >
-                <ShieldCheck size={18} /> Admin
-              </div>
-            )}
-          </div>
 
-          {/* Profile & Log Out at bottom */}
-          <div className="menu-bottom">
-            <div
-              className={`menu-item ${
-                currentPage === 'profile' ? 'active' : ''
-              }`}
-              onClick={() => {
-                setCurrentPage('profile');
-                setShowArchivedProjects(false);
-              }}
-            >
-              <UserCircle size={18} /> Profile
+              {/* Modals at the root level */}
+              {showAddProjectModal && (
+                <AddProjectModal
+                  onClose={() => setShowAddProjectModal(false)}
+                  onAdd={(project) => {
+                    alert(`New project: ${project.name}`);
+                    setShowAddProjectModal(false);
+                  }}
+                />
+              )}
+              {showInviteModal && (
+                <InviteModal
+                  onClose={() => setShowInviteModal(false)}
+                  onInvite={(email) => {
+                    alert(`Invitation sent to: ${email}`);
+                    setShowInviteModal(false);
+                  }}
+                />
+              )}
+              {showAddGearModal && (
+                <GearModal
+                  onClose={() => setShowAddGearModal(false)}
+                />
+              )}
+              {showTransferEquipmentModal && (
+                <TransferEquipmentModal
+                  gearList={gearList}
+                  team={team}
+                  projects={projectList}
+                  onClose={() => setShowTransferEquipmentModal(false)}
+                />
+              )}
             </div>
-            <div className="menu-item" onClick={() => signOut(auth)}>
-              <Settings size={18} /> Log Out
-            </div>
-          </div>
-        </div>
-
-        {/* Main Content */}
-        <div className="content-container">
-          <div style={{display: "flex", justifyContent: "flex-end", marginBottom: 12}}>
-            <NotificationBell />
-          </div>
-          {renderContent()}
-        </div>
-      </div>
-
-      {/* Mobile Bottom Nav */}
-      <div className="mobile-nav mobile-only">
-        <div onClick={() => {
-          setCurrentPage('dashboard');
-          setShowArchivedProjects(false);
-        }}>
-          <Home size={22} />
-          <div>Home</div>
-        </div>
-        <div onClick={() => {
-          setCurrentPage('templates');
-          setShowArchivedProjects(false);
-        }}>
-          <FileText size={22} />
-          <div>Templates</div>
-        </div>
-        <div
-          ref={plusBtnRef}
-          className="plus-btn"
-          onClick={() => {
-            setShowPlusMenu(p => !p);
-            setShowMoreMobile(false);
-          }}
-        >
-          <PlusCircle size={28} />
-        </div>
-        <div onClick={() => {
-          setCurrentPage('completedInspections');
-          setShowArchivedProjects(false);
-        }}>
-          <ClipboardList size={22} />
-          <div>Inspections</div>
-        </div>
-        <div
-          ref={moreBtnRef}
-          onClick={() => {
-            setShowMoreMobile(m => !m);
-            setShowPlusMenu(false);
-          }}
-        >
-          <MoreHorizontal size={22} />
-          <div>More</div>
-        </div>
-      </div>
-
-      {/* Mobile “+” Sub-Menu */}
-      {showPlusMenu && (
-        <div ref={plusMenuRef} className="mobile-plus-menu mobile-only">
-          <div
-            onClick={() => {
-              setCurrentPage('templates');
-              setShowPlusMenu(false);
-              setShowArchivedProjects(false);
-            }}
-          >
-            <FileText size={18} /> Start Inspection
-          </div>
-          <div
-            onClick={() => {
-              setCurrentPage('gear');
-              setShowPlusMenu(false);
-              setShowArchivedProjects(false);
-            }}
-          >
-            <HardHat size={18} /> Add Gear
-          </div>
-          <div
-            onClick={() => {
-              useUIStore.getState().setShowTransferModal(true);
-              setShowPlusMenu(false);
-            }}
-          >
-            <Repeat size={18} /> Transfer Equipment
-          </div>
-          {canBuilder && (
-            <div
-              onClick={() => {
-                setCurrentPage('team');
-                setShowPlusMenu(false);
-                setShowArchivedProjects(false);
-              }}
-            >
-              <Users size={18} /> Add Member
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Mobile “More” Drawer */}
-      <div ref={moreDrawerRef} className={`mobile-more-drawer mobile-only ${showMoreMobile ? 'open' : ''}`}>
-        {/* Notification Bell aligned right */}
-        <div style={{
-          width: "100%",
-          display: "flex",
-          justifyContent: "flex-end",
-          alignItems: "center",
-          marginTop: "10px",
-          marginBottom: "-8px"
-        }}>
-          <NotificationBell />
-        </div>
-        <div className="mobile-drawer-logo">
-          <img src="/assets/logo.png" alt="Logo" />
-        </div>
-        <div
-          onClick={() => {
-            setCurrentPage('dashboard');
-            setShowArchivedProjects(false);
-          }}
-        >
-          <Home size={18} /> Dashboard
-        </div>
-        <div
-          onClick={() => {
-            setCurrentPage('projects');
-            setShowArchivedProjects(false);
-          }}
-        >
-          <Folder size={18} /> Projects
-        </div>
-        <div
-          onClick={() => {
-            setCurrentPage('team');
-            setShowArchivedProjects(false);
-          }}
-        >
-          <Users size={18} /> Team
-        </div>
-        <div
-          onClick={() => {
-            setCurrentPage('gear');
-            setShowArchivedProjects(false);
-          }}
-        >
-          <HardHat size={18} /> Gear
-        </div>
-        {canBuilder && (
-          <div
-            onClick={() => {
-              setCurrentPage('templateBuilder');
-              setShowArchivedProjects(false);
-            }}
-          >
-            <File size={18} /> Template Builder
-          </div>
-        )}
-        {isAdmin && (
-          <div
-            onClick={() => {
-              setCurrentPage('adminPanel');
-              setShowArchivedProjects(false);
-            }}
-          >
-            <ShieldCheck size={18} /> Admin
-          </div>
-        )}
-        <div className="divider" />
-        <div
-          onClick={() => {
-            setCurrentPage('profile');
-            setShowArchivedProjects(false);
-          }}
-        >
-          <UserCircle size={18} /> Profile
-        </div>
-        <div
-          onClick={() => {
-            signOut(auth);
-            setShowArchivedProjects(false);
-          }}
-        >
-          <Settings size={18} /> Log Out
-        </div>
-      </div>
-    </div>
+          )
+        }
+      />
+    </Routes>
   );
 }

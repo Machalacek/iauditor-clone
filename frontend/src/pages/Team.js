@@ -1,14 +1,13 @@
 // src/pages/Team.jsx
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { db, auth } from '../firebase';
 import {
   collection,
-  getDocs,
   updateDoc,
   doc,
-  getDoc,
   addDoc,
+  onSnapshot,
+  getDoc,
 } from 'firebase/firestore';
 import emailjs from 'emailjs-com';
 import {
@@ -21,9 +20,19 @@ import {
   UserCheck,
   UserX,
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import ManageInvites from './ManageInvites.jsx'; // or your path
 
 const ROLES = ['all', 'user', 'manager', 'admin'];
 const STATUSES = ['all', 'active', 'deactivated'];
+
+// Utility to generate a random invite token
+//function randomToken(length = 24) {
+//  const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+//  let str = '';
+//  for (let i = 0; i < length; ++i) str += chars[Math.floor(Math.random() * chars.length)];
+//  return str;
+//}
 
 // format ISO timestamp as DD.MM.YYYY | HH:MM
 function formatLastSeen(iso) {
@@ -37,15 +46,22 @@ function formatLastSeen(iso) {
   return `${dd}.${mm}.${yyyy} | ${hh}:${mi}`;
 }
 
-// status badge (green/red)
-function renderStatus(active) {
+// status badge
+function renderStatus(user) {
+  if (!user.active && user.status === 'pending') {
+    return (
+      <span className="inline-block px-3 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-700">
+        Pending
+      </span>
+    );
+  }
   return (
     <span
       className={`inline-block px-3 py-1 text-xs font-semibold rounded-full ${
-        active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+        user.active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
       }`}
     >
-      {active ? 'Active' : 'Deactivated'}
+      {user.active ? 'Active' : 'Deactivated'}
     </span>
   );
 }
@@ -59,14 +75,14 @@ function getInitials(name) {
     : parts[0][0].toUpperCase();
 }
 
-export default function Team() {
-  const navigate = useNavigate();
-
+export default function Team({ setCurrentPage }) {
+  const [showManageInvites, setShowManageInvites] = useState(false);
   const [teamMembers, setTeamMembers] = useState([]);
   const [filteredMembers, setFilteredMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentUserRole, setCurrentUserRole] = useState('user');
   const [menuOpenFor, setMenuOpenFor] = useState(null);
+  const navigate = useNavigate();
 
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
@@ -84,20 +100,34 @@ export default function Team() {
 
   const canEdit = ['admin', 'manager'].includes(currentUserRole);
 
-  // load user role & members
+  // 1. Real-time team members (already in your code)
   useEffect(() => {
-    const load = async () => {
+    const unsub = onSnapshot(collection(db, 'users'), (snap) => {
+      setTeamMembers(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      setLoading(false);
+    });
+    return () => unsub();
+  }, []);
+
+  // 2. Load current user's role ONCE (add this after)
+  useEffect(() => {
+    const loadRole = async () => {
       const u = auth.currentUser;
       if (u) {
         const snap = await getDoc(doc(db, 'users', u.uid));
         setCurrentUserRole(snap.data()?.role || 'user');
       }
-      const snap = await getDocs(collection(db, 'users'));
-      setTeamMembers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-      setLoading(false);
     };
-    load();
+    loadRole();
   }, []);
+
+  // 3. Show Manage Invites modal when button clicked
+  useEffect(() => {
+    if (showManageInvites) {
+      const modal = document.querySelector('.fixed.inset-0');
+      if (modal) modal.focus();
+    }
+  }, [showManageInvites]);
 
   // apply search, filters & sort
   useEffect(() => {
@@ -105,17 +135,21 @@ export default function Team() {
     if (search) {
       const q = search.toLowerCase();
       res = res.filter(
-        m =>
+        (m) =>
           m.name?.toLowerCase().includes(q) ||
           m.email?.toLowerCase().includes(q)
       );
     }
     if (roleFilter !== 'all') {
-      res = res.filter(m => m.role === roleFilter);
+      res = res.filter((m) => m.role === roleFilter);
     }
     if (statusFilter !== 'all') {
-      res = res.filter(m =>
-        statusFilter === 'active' ? m.active : !m.active
+      res = res.filter((m) =>
+        statusFilter === 'active'
+          ? m.active
+          : statusFilter === 'deactivated'
+          ? !m.active && m.status !== 'pending'
+          : false
       );
     }
     res.sort((a, b) => {
@@ -154,7 +188,7 @@ export default function Team() {
     sortAsc,
   ]);
 
-  const handleSort = field => {
+  const handleSort = (field) => {
     if (sortBy === field) setSortAsc(!sortAsc);
     else {
       setSortBy(field);
@@ -165,61 +199,82 @@ export default function Team() {
   // Firestore updates
   const handleUpdate = async (id, field, val) => {
     await updateDoc(doc(db, 'users', id), { [field]: val });
-    setTeamMembers(ms =>
-      ms.map(m => (m.id === id ? { ...m, [field]: val } : m))
-    );
+    // No need to update state, onSnapshot will handle it
   };
   const toggleActive = async (id, current) => {
     await updateDoc(doc(db, 'users', id), { active: !current });
-    setTeamMembers(ms =>
-      ms.map(m => (m.id === id ? { ...m, active: !current } : m))
-    );
     setMenuOpenFor(null);
   };
 
   // Invite + EmailJS
-  const handleInvite = async e => {
+  const handleInvite = async (e) => {
     e.preventDefault();
-    const ref = await addDoc(collection(db, 'users'), {
-      ...inviteForm,
-      active: true,
-      lastSeen: null,
+
+    // 1. Generate a unique invite token
+    function randomToken(length = 24) {
+      const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+      let str = '';
+      for (let i = 0; i < length; ++i) str += chars[Math.floor(Math.random() * chars.length)];
+      return str;
+    }
+    const token = randomToken();
+
+    // 2. Save invite in Firestore
+    await addDoc(collection(db, 'invites'), {
+      email: inviteForm.email,
+      name: inviteForm.name,
+      role: inviteForm.role || 'user',
+      position: inviteForm.position || 'Rope Access Technician',
+      invitedAt: new Date().toISOString(),
+      accepted: false,
+      token, // store the token
     });
-    setTeamMembers(ms => [
-      ...ms,
-      { id: ref.id, ...inviteForm, active: true, lastSeen: null },
-    ]);
+
+    // 3. Build invite link for the email
+    const inviteLink = `${window.location.origin}/register?invite=${token}`;
+
+    // Log the invite link so you can confirm it's correct
+    console.log("Invite link being sent:", inviteLink);
+
+    // 4. Send the invite email with EmailJS
     try {
       await emailjs.send(
-        'YOUR_SERVICE_ID',
-        'YOUR_TEMPLATE_ID',
+        'service_nitgdo3',     // <-- Your EmailJS service ID
+        'template_ciksxos',    // <-- Your EmailJS template ID
         {
           to_name: inviteForm.name,
           to_email: inviteForm.email,
           role: inviteForm.role,
-          login_url: window.location.origin + '/login',
+          invite_link: inviteLink, // this must match your EmailJS template variable!
         },
-        'YOUR_PUBLIC_KEY'
+        't4lGgi5jsbJ25iPDa'    // <-- Your EmailJS public key
       );
+      alert('Invite sent!');
     } catch (err) {
       console.error('EmailJS error:', err);
+      alert('Failed to send invite email.');
     }
+
     setInviteForm({ name: '', email: '', role: 'user' });
     setShowModal(false);
   };
-
+  
   // Export CSV
   const exportCSV = () => {
     const rows = [
       ['Name', 'Status', 'Last seen', 'Role'],
-      ...teamMembers.map(m => [
+      ...teamMembers.map((m) => [
         m.name,
-        m.active ? 'Active' : 'Deactivated',
+        m.status === 'pending'
+          ? 'Pending'
+          : m.active
+          ? 'Active'
+          : 'Deactivated',
         m.lastSeen || '—',
         m.role,
       ]),
     ];
-    const csv = rows.map(r => r.join(',')).join('\n');
+    const csv = rows.map((r) => r.join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -244,14 +299,35 @@ export default function Team() {
           {canEdit && (
             <div
               className="flex items-center gap-2"
-              onClick={e => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
             >
               <button
-                onClick={() => alert('Manage invites')}
+                onClick={() => setShowManageInvites(true)}
                 className="border border-blue-600 text-blue-600 hover:bg-blue-50 px-3 py-2 rounded-lg text-sm"
               >
                 Manage invites
               </button>
+              {showManageInvites && (
+                <div
+                  className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50"
+                  onClick={() => setShowManageInvites(false)} // closes when clicking outside
+                  tabIndex={-1}
+                  onKeyDown={e => {
+                    if (e.key === "Escape") setShowManageInvites(false);
+                  }}
+                >
+                  <div
+                    className="bg-white rounded-xl shadow-lg w-[600px] max-w-full p-8"
+                    onClick={e => e.stopPropagation()} // keeps modal open when clicking inside
+                  >
+                    <button
+                      className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl"
+                      onClick={() => setShowManageInvites(false)}
+                    >&times;</button>
+                    <ManageInvites />
+                  </div>
+                </div>
+              )}
               <button
                 onClick={() => setShowModal(true)}
                 className="bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded-lg text-sm"
@@ -260,11 +336,9 @@ export default function Team() {
               </button>
               <div className="relative">
                 <button
-                  onClick={e => {
+                  onClick={(e) => {
                     e.stopPropagation();
-                    setMenuOpenFor(
-                      menuOpenFor === 'header' ? null : 'header'
-                    );
+                    setMenuOpenFor(menuOpenFor === 'header' ? null : 'header');
                   }}
                   className="p-1 hover:bg-gray-100 rounded"
                 >
@@ -273,7 +347,7 @@ export default function Team() {
                 {menuOpenFor === 'header' && (
                   <div
                     className="absolute right-0 mt-2 bg-white border rounded shadow z-10 w-48"
-                    onClick={e => e.stopPropagation()}
+                    onClick={(e) => e.stopPropagation()}
                   >
                     <button
                       onClick={exportCSV}
@@ -296,7 +370,7 @@ export default function Team() {
               type="text"
               placeholder="Search by name or email…"
               value={search}
-              onChange={e => setSearch(e.target.value)}
+              onChange={(e) => setSearch(e.target.value)}
               className="border rounded px-3 py-2 w-full md:w-1/2"
             />
 
@@ -350,9 +424,9 @@ export default function Team() {
             <div className="relative">
               <button
                 className="text-blue-600 text-sm hover:underline"
-                onClick={e => {
+                onClick={(e) => {
                   e.stopPropagation();
-                  setFilterOpen(open => !open);
+                  setFilterOpen((open) => !open);
                 }}
               >
                 + Add Filter
@@ -360,16 +434,16 @@ export default function Team() {
               {filterOpen && (
                 <div
                   className="absolute top-full right-0 mt-1 bg-white border rounded shadow p-4 z-10 w-64"
-                  onClick={e => e.stopPropagation()}
+                  onClick={(e) => e.stopPropagation()}
                 >
                   <label className="block mb-2 text-sm">
                     Role:
                     <select
                       value={roleFilter}
-                      onChange={e => setRoleFilter(e.target.value)}
+                      onChange={(e) => setRoleFilter(e.target.value)}
                       className="mt-1 block w-full border rounded px-2 py-1"
                     >
-                      {ROLES.map(r => (
+                      {ROLES.map((r) => (
                         <option key={r} value={r}>
                           {r.charAt(0).toUpperCase() + r.slice(1)}
                         </option>
@@ -380,10 +454,10 @@ export default function Team() {
                     Status:
                     <select
                       value={statusFilter}
-                      onChange={e => setStatusFilter(e.target.value)}
+                      onChange={(e) => setStatusFilter(e.target.value)}
                       className="mt-1 block w-full border rounded px-2 py-1"
                     >
-                      {STATUSES.map(s => (
+                      {STATUSES.map((s) => (
                         <option key={s} value={s}>
                           {s.charAt(0).toUpperCase() + s.slice(1)}
                         </option>
@@ -451,10 +525,11 @@ export default function Team() {
         ) : filteredMembers.length === 0 ? (
           <div className="text-gray-400">No team members found.</div>
         ) : (
-          filteredMembers.map(member => (
+          filteredMembers.map((member) => (
             <React.Fragment key={member.id}>
               {/* Mobile Card */}
-              <div className="md:hidden grid bg-white rounded-2xl shadow p-4 border-l-4 border-blue-500 grid-cols-[1fr_auto] gap-y-2">
+              <div className="md:hidden grid bg-white rounded-2xl shadow p-4 border-l-4 border-blue-500 grid-cols-[1fr_auto] gap-y-2 cursor-pointer hover:bg-blue-50 transition"
+              onClick={() => navigate(`/profile?uid=${member.id}`)}>
                 <div>
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center text-gray-600 font-semibold">
@@ -472,11 +547,11 @@ export default function Team() {
                       <select
                         className="border px-2 py-1 rounded text-sm"
                         value={member.role}
-                        onChange={e =>
+                        onChange={(e) =>
                           handleUpdate(member.id, 'role', e.target.value)
                         }
                       >
-                        {ROLES.slice(1).map(r => (
+                        {ROLES.slice(1).map((r) => (
                           <option key={r} value={r}>
                             {r.charAt(0).toUpperCase() + r.slice(1)}
                           </option>
@@ -487,12 +562,12 @@ export default function Team() {
                         {member.role}
                       </div>
                     )}
-                    {renderStatus(member.active)}
+                    {renderStatus(member)}
                   </div>
                 </div>
                 <div className="relative">
                   <button
-                    onClick={e => {
+                    onClick={(e) => {
                       e.stopPropagation();
                       setMenuOpenFor(
                         menuOpenFor === member.id ? null : member.id
@@ -505,11 +580,11 @@ export default function Team() {
                   {menuOpenFor === member.id && (
                     <div
                       className="absolute right-0 mt-2 bg-white border rounded shadow z-10 w-48"
-                      onClick={e => e.stopPropagation()}
+                      onClick={(e) => e.stopPropagation()}
                     >
                       <button
                         onClick={() => {
-                          navigate(`/profile/${member.id}`);
+                          navigate(`/profile?uid=${member.id}`);
                           setMenuOpenFor(null);
                         }}
                         className="flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100"
@@ -536,7 +611,9 @@ export default function Team() {
               </div>
 
               {/* Desktop Row */}
-              <div className="hidden md:grid grid-cols-[3fr_1fr_1fr_1fr_auto] items-center bg-white rounded-2xl shadow p-4 border-l-4 border-blue-500">
+              <div
+              className="hidden md:grid grid-cols-[3fr_1fr_1fr_1fr_auto] items-center bg-white rounded-2xl shadow p-4 border-l-4 border-blue-500 cursor-pointer hover:bg-blue-50 transition"
+              onClick={() => navigate(`/profile?uid=${member.id}`)}>
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center text-gray-600 font-semibold">
                     {getInitials(member.name)}
@@ -551,7 +628,7 @@ export default function Team() {
                   </div>
                 </div>
                 <div className="justify-self-center">
-                  {renderStatus(member.active)}
+                  {renderStatus(member)}
                 </div>
                 <div className="justify-self-center text-sm text-gray-600">
                   {formatLastSeen(member.lastSeen)}
@@ -561,11 +638,11 @@ export default function Team() {
                     <select
                       className="border px-2 py-1 rounded text-sm"
                       value={member.role}
-                      onChange={e =>
+                      onChange={(e) =>
                         handleUpdate(member.id, 'role', e.target.value)
                       }
                     >
-                      {ROLES.slice(1).map(r => (
+                      {ROLES.slice(1).map((r) => (
                         <option key={r} value={r}>
                           {r.charAt(0).toUpperCase() + r.slice(1)}
                         </option>
@@ -579,7 +656,7 @@ export default function Team() {
                 </div>
                 <div className="relative text-right">
                   <button
-                    onClick={e => {
+                    onClick={(e) => {
                       e.stopPropagation();
                       setMenuOpenFor(
                         menuOpenFor === member.id ? null : member.id
@@ -592,11 +669,11 @@ export default function Team() {
                   {menuOpenFor === member.id && (
                     <div
                       className="absolute right-0 mt-2 bg-white border rounded shadow z-10 w-48"
-                      onClick={e => e.stopPropagation()}
+                      onClick={(e) => e.stopPropagation()}
                     >
                       <button
                         onClick={() => {
-                          navigate(`/profile/${member.id}`);
+                          navigate(`/profile?uid=${member.id}`);
                           setMenuOpenFor(null);
                         }}
                         className="flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100"
@@ -638,8 +715,8 @@ export default function Team() {
                 type="text"
                 placeholder="Full Name"
                 value={inviteForm.name}
-                onChange={e =>
-                  setInviteForm(f => ({ ...f, name: e.target.value }))
+                onChange={(e) =>
+                  setInviteForm((f) => ({ ...f, name: e.target.value }))
                 }
                 className="w-full border px-3 py-2 rounded"
                 required
@@ -648,20 +725,33 @@ export default function Team() {
                 type="email"
                 placeholder="Email"
                 value={inviteForm.email}
-                onChange={e =>
-                  setInviteForm(f => ({ ...f, email: e.target.value }))
+                onChange={(e) =>
+                  setInviteForm((f) => ({ ...f, email: e.target.value }))
                 }
                 className="w-full border px-3 py-2 rounded"
                 required
               />
               <select
+                className="w-full border px-3 py-2 rounded bg-white"
+                value={inviteForm.position || ''}
+                onChange={e => setInviteForm(f => ({ ...f, position: e.target.value }))}
+                required
+              >
+                <option value="">Select Position</option>
+                <option value="Rope Access Technician">Rope Access Technician</option>
+                <option value="Supervisor">Supervisor</option>
+                <option value="Manager">Manager</option>
+                <option value="Project Coordinator">Project Coordinator</option>
+                {/* Add more as needed */}
+              </select>
+              <select
                 value={inviteForm.role}
-                onChange={e =>
-                  setInviteForm(f => ({ ...f, role: e.target.value }))
+                onChange={(e) =>
+                  setInviteForm((f) => ({ ...f, role: e.target.value }))
                 }
                 className="w-full border px-3 py-2 rounded"
               >
-                {ROLES.slice(1).map(r => (
+                {ROLES.slice(1).map((r) => (
                   <option key={r} value={r}>
                     {r.charAt(0).toUpperCase() + r.slice(1)}
                   </option>

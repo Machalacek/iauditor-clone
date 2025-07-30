@@ -244,3 +244,9 @@ body, html, #root, .app-container {
   margin: 18px 0;
   opacity: 0.12;
 }
+
+@media (min-width: 768px) {
+  .content-container {
+    margin-left: 240px;
+  }
+}

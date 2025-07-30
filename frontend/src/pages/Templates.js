@@ -1,10 +1,12 @@
 // src/pages/Templates.js
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 export default function Templates({ onEditTemplate }) {
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const navigate = useNavigate();
 
   // Fetch templates from backend
   const fetchTemplates = async () => {
@@ -88,10 +90,20 @@ export default function Templates({ onEditTemplate }) {
               <small>Created: {new Date(t.createdAt).toLocaleString()}</small>
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={() => onEditTemplate(t.id)}>Edit</button>
+              <button onClick={() => onEditTemplate?.(t.id) || navigate(`/templateBuilder/${t.id}`)}>
+                Edit
+              </button>
               <button onClick={() => duplicateTemplate(t)}>Duplicate</button>
               <button onClick={() => deleteTemplate(t.id)} style={{ color: 'red' }}>
                 Delete
+              </button>
+              <button
+                style={{
+                  background: '#007bff', color: '#fff', border: 'none', padding: '6px 14px', borderRadius: 5
+                }}
+                onClick={() => navigate(`/inspections/new/${t.id}`)}
+              >
+                Start Inspection
               </button>
             </div>
           </li>

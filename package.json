@@ -1,0 +1,24 @@
+{
+  "name": "iauditor-clone",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "concurrently \"npm run server --prefix backend\" \"npm start --prefix frontend\"",
+    "server": "node server.js --prefix backend"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Machalacek/iauditor-clone.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Machalacek/iauditor-clone/issues"
+  },
+  "homepage": "https://github.com/Machalacek/iauditor-clone#readme",
+  "description": "",
+  "devDependencies": {
+    "concurrently": "^9.2.0"
+  }
+}
