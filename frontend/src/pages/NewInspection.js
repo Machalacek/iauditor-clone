@@ -1,13 +1,18 @@
 // src/pages/NewInspection.js
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { api } from "../lib/api";
 
 // Helper: Check if all required questions are answered
 function allRequiredAnswered(pages, answers) {
   for (const page of pages) {
-    for (const question of page.questions) {
-      if (question.required && !answers[question.id]) {
-        return false;
+    const sections = page.sections || [];
+    for (const section of sections) {
+      const qs = section.questions || [];
+      for (const q of qs) {
+        if (q.required && (answers[String(q.id)] === "" || answers[String(q.id)] == null)) {
+          return false;
+        }
       }
     }
   }
@@ -29,17 +34,17 @@ export default function NewInspection() {
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch(`http://localhost:4000/templates/${templateId}`);
-        if (!res.ok) throw new Error("Template not found");
-        const data = await res.json();
+        const data = await api.get(`/templates/${templateId}`);
         setTemplate(data);
-        // Initialize empty answers for all questions
+        // Initialize empty answers for all questions (pages -> sections -> questions)
         const init = {};
-        data.pages.forEach(page =>
-          page.questions.forEach(q => {
-            init[q.id] = "";
-          })
-        );
+        (data.pages || []).forEach(page => {
+          (page.sections || []).forEach(sec => {
+            (sec.questions || []).forEach(q => {
+              init[String(q.id)] = "";
+            });
+          });
+        });
         setAnswers(init);
       } catch (err) {
         setError(err.message);
@@ -54,21 +59,42 @@ export default function NewInspection() {
   if (error) return <div style={{ color: "red" }}>{error}</div>;
   if (!template) return null;
 
-  const pages = template.pages;
-  const page = pages[pageIdx];
+  const pages = template.pages || [];
+  const page = pages[pageIdx] || { sections: [] };
+  const questionsOnPage = (page.sections || []).flatMap(sec => sec.questions || []);
 
   // Render a single question
   function renderQuestion(q) {
-    const val = answers[q.id] || "";
-    switch (q.questionType) {
+    const key = String(q.id);
+    const val = answers[key] ?? "";
+    const qType = q.type || q.questionType || "text";
+
+    // Basic mapping to keep things working with your current structure
+    if (qType.includes("date")) {
+      return (
+        <input
+          type="date"
+          value={val}
+          required={q.required}
+          className="w-full border p-2 rounded"
+          onChange={e => setAnswers(a => ({ ...a, [key]: e.target.value }))}
+        />
+      );
+    }
+
+    switch (qType) {
       case "short-text":
+      case "text":
+      case "site":
+      case "person":
+      case "inspection_location":
         return (
           <input
             type="text"
             value={val}
             required={q.required}
             className="w-full border p-2 rounded"
-            onChange={e => setAnswers(a => ({ ...a, [q.id]: e.target.value }))}
+            onChange={e => setAnswers(a => ({ ...a, [key]: e.target.value }))}
           />
         );
       case "paragraph":
@@ -77,7 +103,7 @@ export default function NewInspection() {
             value={val}
             required={q.required}
             className="w-full border p-2 rounded"
-            onChange={e => setAnswers(a => ({ ...a, [q.id]: e.target.value }))}
+            onChange={e => setAnswers(a => ({ ...a, [key]: e.target.value }))}
           />
         );
       case "checkbox":
@@ -85,7 +111,7 @@ export default function NewInspection() {
           <input
             type="checkbox"
             checked={!!val}
-            onChange={e => setAnswers(a => ({ ...a, [q.id]: e.target.checked }))}
+            onChange={e => setAnswers(a => ({ ...a, [key]: e.target.checked }))}
           />
         );
       case "number":
@@ -95,7 +121,7 @@ export default function NewInspection() {
             value={val}
             required={q.required}
             className="w-full border p-2 rounded"
-            onChange={e => setAnswers(a => ({ ...a, [q.id]: e.target.value }))}
+            onChange={e => setAnswers(a => ({ ...a, [key]: e.target.value }))}
           />
         );
       case "slider":
@@ -106,65 +132,51 @@ export default function NewInspection() {
             max={q.sliderMax || 10}
             step={q.sliderStep || 1}
             value={val || q.sliderMin || 0}
-            onChange={e => setAnswers(a => ({ ...a, [q.id]: e.target.value }))}
+            onChange={e => setAnswers(a => ({ ...a, [key]: e.target.value }))}
           />
         );
       case "multiple-choice":
-        return (
-          <select
-            value={val}
-            className="w-full border p-2 rounded"
-            required={q.required}
-            onChange={e => setAnswers(a => ({ ...a, [q.id]: e.target.value }))}
-          >
-            <option value="">Select...</option>
-            {q.options.map((opt, i) => (
-              <option key={i} value={opt}>{opt}</option>
-            ))}
-          </select>
-        );
       case "dropdown":
         return (
           <select
             value={val}
             className="w-full border p-2 rounded"
             required={q.required}
-            onChange={e => setAnswers(a => ({ ...a, [q.id]: e.target.value }))}
+            onChange={e => setAnswers(a => ({ ...a, [key]: e.target.value }))}
           >
             <option value="">Select...</option>
-            {q.options.map((opt, i) => (
+            {(q.options || []).map((opt, i) => (
               <option key={i} value={opt}>{opt}</option>
             ))}
           </select>
         );
-      // Add other question types here as needed...
       default:
-        return <input
-          type="text"
-          value={val}
-          onChange={e => setAnswers(a => ({ ...a, [q.id]: e.target.value }))}
-        />;
+        return (
+          <input
+            type="text"
+            value={val}
+            className="w-full border p-2 rounded"
+            onChange={e => setAnswers(a => ({ ...a, [key]: e.target.value }))}
+          />
+        );
     }
   }
+
 
   async function handleSubmit(complete = false) {
     setSubmitting(true);
     try {
       const completeStatus =
         complete && allRequiredAnswered(pages, answers) ? "complete" : "incomplete";
-      // Save to backend
-      const res = await fetch("http://localhost:4000/inspections", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          templateId,
-          templateName: pages[0]?.name || "Untitled",
-          answers,
-          status: completeStatus,
-          createdAt: new Date().toISOString(),
-        }),
+
+      await api.post("/inspections", {
+        templateId,
+        templateName: pages[0]?.title || "Untitled",
+        answers,
+        status: completeStatus,
+        createdAt: new Date().toISOString(),
       });
-      if (!res.ok) throw new Error("Failed to save inspection");
+
       navigate("/inspections");
     } catch (err) {
       alert(err.message);
@@ -197,13 +209,13 @@ export default function NewInspection() {
           )}
         </div>
         <div className="flex flex-col gap-6">
-          {page.questions.length === 0 ? (
+          {questionsOnPage.length === 0 ? (
             <div className="text-gray-400">No questions on this page.</div>
           ) : (
-            page.questions.map((q, i) => (
+            questionsOnPage.map((q) => (
               <div key={q.id} className="mb-3">
                 <label className="block font-medium mb-1">
-                  {q.questionText || <em>Untitled question</em>}
+                  {q.label || q.questionText || <em>Untitled question</em>}
                   {q.required && <span className="text-red-500 ml-1">*</span>}
                 </label>
                 {renderQuestion(q)}

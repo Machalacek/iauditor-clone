@@ -1,0 +1,106 @@
+/* /src/styles/TemplateBuilder.css */
+/* Two-pane layout with compact preview + optional hide */
+
+:root{
+  --toolbar-h:56px;
+  --preview-w: 330px; /* smaller so no horizontal scroll */
+}
+
+/* ----- Scaffolding ------------------------------------------------------ */
+.template-builder-outer{
+  display:flex; flex-direction:column; height:100vh; background:#f5f5f5;
+  overflow-x: hidden; /* never allow horizontal scroll */
+}
+
+.toolbar{
+  width:100%; padding:0 16px; height:56px; background:#fff; display:flex; align-items:center;
+  box-shadow:0 2px 8px #0001; border-bottom:1px solid #ececec; gap:12px;
+}
+.toolbar-btn{ padding:6px 12px; border-radius:6px; background:#f2f2f2; border:none; font-size:1rem;
+  cursor:pointer; font-weight:600; margin-right:2px; }
+.toolbar-btn.primary{ background:#006efd; color:#fff; }
+.toolbar-btn.primary:hover{ background:#0056b3; }
+.toolbar-spacer{ flex:1; }
+.toolbar-status{ color:#888; font-size:1rem; margin-right:14px; }
+
+/* ----- Two columns ------------------------------------------------------ */
+.template-builder-main{
+  display:flex; flex:1 1 auto; height:1px; min-height:0; overflow:hidden;
+}
+
+/* LEFT: canvas (scrolls) */
+.builder-canvas{
+  flex:1 1 auto; min-width:0;
+  padding:24px; overflow-y:auto; display:flex; flex-direction:column; gap:24px;
+  background:#f9f9f9;
+}
+.builder-header{ display:flex; align-items:center; gap:24px; margin-bottom:24px; }
+.logo-uploader{ width:60px; height:60px; background:#f2f2f2; border-radius:14px; display:flex;
+  align-items:center; justify-content:center; cursor:pointer; }
+.logo-placeholder{ width:60px; height:60px; display:flex; align-items:center; justify-content:center; }
+.builder-header-texts{ display:flex; flex-direction:column; gap:8px; }
+.template-title{ font-size:1.5rem; font-weight:bold; border:none; background:transparent; outline:none; }
+.template-description{ font-size:1rem; border:none; background:transparent; outline:none; color:#888; }
+
+.section-card{
+  background:#fff; border-radius:14px; box-shadow:0 2px 8px #0001;
+  padding:20px; margin-bottom:16px; min-width:0;
+}
+.section-header{ display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+.section-title{ font-size:1.1rem; font-weight:bold; display:flex; align-items:center; gap:8px; }
+.icon-btn{ background:none; border:none; cursor:pointer; padding:0 2px; color:#555; display:flex; align-items:center; font-size:1rem; }
+.icon-btn:hover{ color:#006efd; }
+.section-desc{ color:#888; margin-bottom:12px; font-size:.97rem; }
+
+.section-questions{ display:flex; flex-direction:column; gap:8px; }
+.add-question-btn{
+  margin-top:12px; padding:8px 12px; border-radius:10px; border:none; background:#eef1f7; font-weight:700;
+  color:#3b3b3b; cursor:pointer;
+}
+.add-question-btn:hover{ background:#e5e9f4; }
+
+.question-row{
+  display:flex; align-items:center; background:#f6f8fb; border-radius:10px; padding:12px 14px; gap:12px;
+  box-shadow:0 1px 2px #0001;
+}
+.drag-handle{ cursor:grab; display:flex; align-items:center; margin-right:8px; }
+.question-label{ border:none; background:transparent; font-size:1rem; font-weight:500; width:180px; color:#232323; outline:none; }
+.question-type{ border-radius:6px; border:1px solid #dadada; background:#fff; padding:4px 8px; font-size:.95rem; }
+.required-checkbox{ font-size:.93rem; display:flex; align-items:center; gap:4px; margin-left:6px; margin-right:10px; }
+
+/* ----- RIGHT: preview (smaller + no horizontal scroll) ------------------ */
+.preview-pane{
+  min-width: var(--preview-w);
+  width:     var(--preview-w);
+  background:#f9f9f9; border-left:1px solid #ececec;
+  display:flex; align-items:flex-start; justify-content:center;
+  padding:24px 10px 0 10px; overflow-y:auto; overflow-x:hidden;
+}
+
+/* Allow easy hide/show via class */
+.preview-pane.is-hidden{ display:none; }
+
+.iphone-mockup{
+  width:300px;  /* <= key change */
+  height:560px;
+  border-radius:32px; box-shadow:0 0 0 8px #000, 0 4px 32px #0002; background:#fff;
+  position:relative; padding:18px 12px 8px 12px; display:flex; flex-direction:column; overflow-y:auto;
+}
+.question-preview-list > div{
+  border:1px solid #eee; border-radius:8px; padding:10px; margin-bottom:10px; font-size:15px; background:#fafafa;
+}
+
+/* ----- Buttons at bottom ------------------------------------------------ */
+.add-section-btn{ margin-top:28px; padding:11px 14px; border-radius:10px; border:none; background:#eef1f7; font-weight:700; color:#3b3b3b; cursor:pointer; }
+.add-section-btn:hover{ background:#e5e9f4; }
+
+/* ----- Responsive tweaks ------------------------------------------------ */
+@media (max-width:1100px){ .preview-pane{ display:none; } }
+@media (max-width:900px){ .builder-canvas{ padding:16px 6px; } }
+@media (max-width:650px){
+  .builder-canvas{ padding:8px 0 0 0; }
+  .section-card{ padding:10px; }
+  .question-row{ flex-direction:column; align-items:flex-start; gap:6px; padding:10px; }
+  .builder-header{ flex-direction:column; align-items:flex-start; gap:10px; }
+  .add-section-btn, .add-question-btn{ width:100%; font-size:1rem; padding:11px 0; }
+}

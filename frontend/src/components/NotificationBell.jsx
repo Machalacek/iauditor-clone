@@ -19,6 +19,8 @@ export default function NotificationBell() {
   const { notifications, setNotifications } = useNotificationStore();
   const [open, setOpen] = useState(false);
   const [userProfile, setUserProfile] = useState(null);
+  const [banner, setBanner] = useState("");
+
 
   const bellBtnRef = useRef(null);
   const menuRef = useRef(null);
@@ -65,6 +67,23 @@ export default function NotificationBell() {
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, [open]);
+
+  // Listen for global toast events from pages (e.g., ProjectDetail)
+  useEffect(() => {
+    let timer = null;
+    function handleToast(e) {
+      const msg = e?.detail || "";
+      if (!msg) return;
+      setBanner(msg);
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => setBanner(""), 3000);
+    }
+    window.addEventListener("app:toast", handleToast);
+    return () => {
+      window.removeEventListener("app:toast", handleToast);
+      if (timer) clearTimeout(timer);
+    };
+  }, []);
 
   // Mark all as read (remove 'pending' state)
   const markAllRead = async () => {
@@ -170,6 +189,13 @@ export default function NotificationBell() {
 
   return (
     <div className="relative">
+      {banner && (
+        <div className="absolute -top-10 left-1/2 -translate-x-1/2 z-[1000]">
+          <div className="px-4 py-1.5 rounded-md shadow bg-green-500 text-white text-sm font-semibold">
+            {banner}
+          </div>
+        </div>
+      )}
       <button
         ref={bellBtnRef}
         className="p-2 rounded-full hover:bg-gray-100"

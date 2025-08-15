@@ -2,13 +2,14 @@
 import React, { useEffect, useState } from 'react';
 import { useProjectStore } from '../store/projectStore';
 import { PlusIcon, Settings, X as XIcon, Pencil, Trash, ArchiveRestore } from 'lucide-react';
-
+import { useNavigate } from 'react-router-dom';
 
 export default function Projects({ onShowArchived }) {
   const { projects, fetchProjects, addProject, renameProject, deleteProject, archiveProject, loading } = useProjectStore();
   const [newProject, setNewProject] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const navigate = useNavigate();
 
   // UI state
   const [editId, setEditId] = useState(null);
@@ -117,7 +118,9 @@ export default function Projects({ onShowArchived }) {
           projects.filter(p => !p.archived).map((project) => (
             <div
               key={project.id}
-              className={`bg-white rounded-2xl shadow p-4 border-l-4 flex items-center justify-between ${
+              onClick={() => navigate(`/projects/${project.id}`)}
+              role="button"
+              className={`bg-white rounded-2xl shadow p-4 border-l-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition ${
                 project.archived ? 'border-gray-400 opacity-60' : 'border-blue-500'
               }`}
             >
@@ -158,7 +161,7 @@ export default function Projects({ onShowArchived }) {
                 )}
               </div>
               {/* Actions */}
-              <div className="flex items-center gap-2 ml-4">
+              <div className="flex items-center gap-2 ml-4" onClick={(e) => e.stopPropagation()}>
                 {editId !== project.id && (
                   <button
                     title="Rename"

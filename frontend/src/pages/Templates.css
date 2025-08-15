@@ -333,3 +333,46 @@
   vertical-align: middle;
   margin-right: 6px;
 }
+
+/* ---------------------------------------
+   Mobile responsiveness (≤ 640px)
+---------------------------------------- */
+@media (max-width: 640px) {
+  .templates-page,
+  .templates-page-container {
+    padding: 12px !important;
+  }
+
+  /* Relax column widths set inline via <col> */
+  .templates-table col {
+    width: auto !important;
+  }
+
+  .templates-table th,
+  .templates-table td {
+    padding: 8px 10px;
+    font-size: 0.85rem;
+  }
+
+  .templates-table thead th {
+    font-size: 0.85rem;
+  }
+
+  /* Let long names/subtitles wrap if needed */
+  .templates-table .truncate {
+    max-width: 70vw;
+  }
+
+  /* Action buttons: tighter spacing on phones */
+  .btn-action {
+    min-width: unset;
+    font-size: 0.8rem;
+    padding: 4px 8px;
+    margin-right: 4px;
+  }
+
+  .pagination,
+  .pagination-controls {
+    gap: 10px;
+  }
+}

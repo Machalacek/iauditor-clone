@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  Home, FileText, File, ClipboardList, Users, Folder, HardHat,
+  Home, FileText, ClipboardList, Users, Folder, HardHat,
   UserCircle, ShieldCheck, Settings, ChevronRight, ChevronDown, ChevronUp,
   Menu as MenuIcon, X as CloseIcon, PlusCircle, Repeat,
 } from 'lucide-react';
@@ -58,7 +58,7 @@ export default function Sidebar({
   const mainMenu = [
     { key: 'dashboard', icon: <Home size={20} />, label: 'Dashboard' },
     { key: 'templates', icon: <FileText size={20} />, label: 'Templates' },
-    ...(canBuilder ? [{ key: 'templateBuilder', icon: <File size={20} />, label: 'Template Builder' }] : []),
+    // Removed Template Builder from main nav!
     { key: 'inspections', icon: <ClipboardList size={20} />, label: 'Inspections' },
     { key: 'projects', icon: <Folder size={20} />, label: 'Projects' },
     { key: 'team', icon: <Users size={20} />, label: 'Team' },
@@ -311,9 +311,13 @@ export default function Sidebar({
               <button
                 key={item.key}
                 onClick={() => {
-                  navigate(`/${item.key}`);
-                  setCurrentPage(item.key);
-                  setMobileOpen(false);
+                  // For Template Builder, go directly to /template-builder (fullscreen)
+                  if (item.key === 'template-builder') {
+                    navigate('/template-builder');
+                  } else {
+                    navigate(`/${item.key}`);
+                    setCurrentPage(item.key);
+                  }
                 }}
                 className={classNames(
                   "flex items-center gap-3 px-4 py-2 rounded-xl font-semibold transition group w-full text-left",

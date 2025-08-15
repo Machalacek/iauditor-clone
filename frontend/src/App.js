@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Dashboard from './pages/Dashboard';
 import TemplateBuilder from './pages/TemplateBuilder';
 import Templates from './pages/Templates';
-import Inspections from './pages/Inspections'; // <-- Updated import
+import Inspections from './pages/Inspections';
 import Projects from './pages/Projects';
 import ArchivedProjects from './pages/ArchivedProjects';
 import Team from './pages/Team';
@@ -21,11 +21,12 @@ import OrganizationSettings from './pages/OrganizationSettings';
 import Sidebar from './Sidebar';
 import Register from "./pages/Register";
 import NewInspection from "./pages/NewInspection";
-
+import FillInspection from "./pages/FillInspection";
+import ProjectDetail from "./pages/ProjectDetail";
 
 import './store/projectStore';
 
-import { Routes, Route, useLocation } from "react-router-dom";
+import { Routes, Route, useLocation, } from "react-router-dom";
 
 import { auth, db } from './firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
@@ -100,6 +101,9 @@ export default function App() {
               lastSeen: null,
             }
           );
+          // keep role available for other pages (e.g., ProjectDetail)
+          const roleToStore = (data?.role || 'user');
+          window.localStorage.setItem('role', roleToStore);
         }
       }
       setLoadingProfile(false);
@@ -109,7 +113,6 @@ export default function App() {
 
   // Sync currentPage to URL on initial load
   useEffect(() => {
-    // Keeps currentPage and the URL in sync for all main app pages
     if (location.pathname.startsWith('/profile')) {
       setCurrentPage('profile');
     } else if (location.pathname.startsWith('/team')) {
@@ -118,10 +121,12 @@ export default function App() {
       setCurrentPage('dashboard');
     } else if (location.pathname.startsWith('/templates')) {
       setCurrentPage('templates');
-    } else if (location.pathname.startsWith('/templateBuilder')) {
+    } else if (location.pathname === '/template-builder') {
       setCurrentPage('templateBuilder');
-    } else if (location.pathname.startsWith('/inspections')) { // <-- Updated
+    } else if (location.pathname.startsWith('/inspections')) {
       setCurrentPage('inspections');
+    } else if (location.pathname.startsWith('/projects/')) {
+      setCurrentPage('projectDetail');
     } else if (location.pathname.startsWith('/projects')) {
       setCurrentPage('projects');
     } else if (location.pathname.startsWith('/gearDetail')) {
@@ -190,12 +195,14 @@ export default function App() {
         return <Templates />;
       case 'templateBuilder':
         return <TemplateBuilder />;
-      case 'inspections': // <-- Updated
+      case 'inspections':
         return <Inspections />;
       case 'projects':
         return showArchivedProjects
           ? <ArchivedProjects onBack={() => setShowArchivedProjects(false)} />
           : <Projects onShowArchived={() => setShowArchivedProjects(true)} />;
+      case 'projectDetail':
+        return <ProjectDetail />;
       case 'team':
         return <Team setCurrentPage={setCurrentPage} />;
       case 'gear':
@@ -213,13 +220,57 @@ export default function App() {
     }
   };
 
+  // 🟢 This is the main change: hide sidebar/layout for /template-builder!
+  const isTemplateBuilder = location.pathname === "/template-builder";
+
   return (
     <Routes>
       {/* Invite registration route */}
       <Route path="/register" element={<Register />} />
-      {/* NEW INSPECTION ROUTE - paste this below */}
+      {/* NEW INSPECTION ROUTE */}
       <Route path="/inspections/new/:templateId" element={<NewInspection />} />
-      {/* All other app routes, using your existing logic */}
+      {/* TEMPLATE BUILDER FULLSCREEN ROUTE */}
+      <Route path="/template-builder/:templateId" element={<TemplateBuilder />} />
+      {/* 🟢 REDIRECT BUILDER WITH NO ID */}
+      <Route path="/template-builder" element={<TemplateBuilder />} />
+      {/* FILL INSPECTION ROUTE */}
+      <Route path="/inspections/fill/:templateId" element={<FillInspection />} />
+
+      {/* ✅ PROJECT DETAIL ROUTE WITH LAYOUT */}
+      <Route
+        path="/projects/:id"
+        element={
+          !user ? (
+            <Login
+              onLogin={(page) => {
+                setUser(auth.currentUser);
+                setCurrentPage(page || "dashboard");
+              }}
+            />
+          ) : loadingProfile || !userProfile ? (
+            <div className="p-6">Loading...</div>
+          ) : (
+            <div className="app-container">
+              <div className="main-layout">
+                <Sidebar
+                  userProfile={userProfile}
+                  setCurrentPage={setCurrentPage}
+                  currentPage={currentPage}
+                  signOut={() => signOut(auth)}
+                />
+                <div className="content-container">
+                  <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+                    <NotificationBell />
+                  </div>
+                  <ProjectDetail />
+                </div>
+              </div>
+            </div>
+          )
+        }
+      />
+
+      {/* All other app routes */}
       <Route
         path="*"
         element={
@@ -232,18 +283,18 @@ export default function App() {
             />
           ) : loadingProfile || !userProfile ? (
             <div className="p-6">Loading...</div>
+          ) : isTemplateBuilder ? (
+            // ⬇️ Fullscreen builder - no sidebar or extra containers
+            <TemplateBuilder />
           ) : (
             <div className="app-container">
               <div className="main-layout">
-                {/* Sidebar handles ALL navigation */}
                 <Sidebar
                   userProfile={userProfile}
                   setCurrentPage={setCurrentPage}
                   currentPage={currentPage}
                   signOut={() => signOut(auth)}
                 />
-
-                {/* Main Content */}
                 <div className="content-container">
                   <div style={{display: "flex", justifyContent: "flex-end", marginBottom: 12}}>
                     <NotificationBell />
